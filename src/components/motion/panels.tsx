@@ -16,7 +16,7 @@ import {
 
 /** Choosing and connecting the video source. */
 export function SourcePanel(): React.ReactElement {
-    const { source, openFile, startLive, stopSource, devices, liveError, liveInfo, preset } = useStudio();
+    const { source, openFile, startLive, stopSource, devices, liveError, liveInfo, probing, preset } = useStudio();
     const fileRef = useRef<HTMLInputElement | null>(null);
     const deviceRef = useRef<HTMLSelectElement | null>(null);
 
@@ -46,8 +46,8 @@ export function SourcePanel(): React.ReactElement {
                 <Button variant="primary" onClick={() => fileRef.current?.click()} full>
                     📁 فتح ملف فيديو
                 </Button>
-                <Button onClick={() => startLive(deviceRef.current?.value || undefined)} full>
-                    🎥 بث مباشر
+                <Button onClick={() => startLive(deviceRef.current?.value || undefined)} disabled={probing !== null} full>
+                    {probing ? '⏳ جارٍ الفحص…' : '🎥 بث مباشر'}
                 </Button>
             </div>
 
@@ -57,7 +57,7 @@ export function SourcePanel(): React.ReactElement {
                     className="w-full rounded border border-white/20 bg-black/30 px-2.5 py-2 text-xs text-white outline-none focus:border-primary"
                     defaultValue=""
                 >
-                    <option value="">الكاميرا الافتراضية</option>
+                    <option value="">تلقائي — جرّب كل المداخل</option>
                     {devices.map((d, i) => (
                         <option key={d.deviceId} value={d.deviceId}>
                             {deviceLabels[i]}
@@ -65,6 +65,16 @@ export function SourcePanel(): React.ReactElement {
                     ))}
                 </select>
             </Field>
+
+            {probing && (
+                <p className="rounded border border-white/20 bg-black/25 px-3 py-2 text-[11px] text-white/80">
+                    {probing}
+                    <br />
+                    <span className="text-white/50">
+                        يجرّب التطبيق كل مدخل بكل دقة متاحة وينتظر وصول إطار فعلي، ويتوقف عند أول تركيبة تعمل.
+                    </span>
+                </p>
+            )}
 
             {liveInfo && <LiveDiagnostics info={liveInfo} onRetry={() => startLive(deviceRef.current?.value || undefined)} />}
 
@@ -124,6 +134,7 @@ function LiveDiagnostics({ info, onRetry }: { info: LiveInfo; onRetry: () => voi
                 {info.width && info.height ? `${info.width}×${info.height}` : 'أبعاد غير معروفة'}
                 {info.frameRate ? ` · ${info.frameRate} fps` : ''} · {info.readyState}
             </p>
+            {info.negotiated && <p className="mt-1 text-[10px] text-white/60">التركيبة المستخدمة: {info.negotiated}</p>}
             {bad && (
                 <>
                     <ul className="mt-2 flex list-disc flex-col gap-1 ps-4">

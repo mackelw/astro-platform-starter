@@ -6,6 +6,7 @@ import { DEFAULT_CALIBRATION, DEFAULT_KINEMATICS_OPTIONS, computeKinematics, pix
 import { DEFAULT_OVERLAY_OPTIONS, type OverlayOptions } from '../../lib/motion/overlay';
 import { buildAngleSeries, angleLabels, type AngleSeries } from '../../lib/motion/angles';
 import { findPreset, guessPreset, type CameraPreset } from '../../lib/motion/presets';
+import { buildCandidates, openFirstWorkingCamera } from '../../lib/motion/camera';
 import type {
     AngleMarker,
     Calibration,
@@ -36,6 +37,8 @@ export interface LiveInfo {
     frameRate: number;
     /** `live` once the device is producing; `ended` if it stopped. */
     readyState: string;
+    /** Which device-and-mode combination actually produced frames. */
+    negotiated: string;
     /**
      * True when the device opened but no frame ever arrived. A UVC camera that
      * exposes several interfaces — the Pocket 3 shows up twice — will happily
@@ -79,6 +82,7 @@ interface StudioValue {
     devices: MediaDeviceInfo[];
     liveError: string | null;
     liveInfo: LiveInfo | null;
+    probing: string | null;
 
     cfg: DetectConfig;
     setCfg: (patch: Partial<DetectConfig>) => void;
@@ -159,6 +163,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [liveError, setLiveError] = useState<string | null>(null);
     const [liveInfo, setLiveInfo] = useState<LiveInfo | null>(null);
+    /** Progress text while probing camera inputs, or null when idle. */
+    const [probing, setProbing] = useState<string | null>(null);
     /** Wall-clock time of the last analysed frame, for the stall watchdog. */
     const lastFrameAtRef = useRef(0);
 
@@ -278,40 +284,70 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
 
     const startLive = useCallback(
         async (deviceId?: string) => {
+            const video = videoRef.current;
+            if (!video) return;
             setLiveError(null);
+            setLiveInfo(null);
+
+            // Release whatever is currently open first: many UVC cameras allow
+            // only one handle, so probing while holding the old stream would
+            // fail every candidate for the wrong reason.
+            setSource((prev) => {
+                if (prev.url) URL.revokeObjectURL(prev.url);
+                prev.stream?.getTracks().forEach((t) => t.stop());
+                return { kind: 'none', name: '', url: null, stream: null };
+            });
+
+            // One permission-gated open, purely so device labels and the full
+            // input list become visible before probing.
+            let deviceList: MediaDeviceInfo[] = [];
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: deviceId
-                        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }
-                        : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-                    audio: false
-                });
-                const track = stream.getVideoTracks()[0];
-                const settings = track?.getSettings?.() ?? {};
-                setSource((prev) => {
-                    if (prev.url) URL.revokeObjectURL(prev.url);
-                    prev.stream?.getTracks().forEach((t) => t.stop());
-                    return { kind: 'live', name: track?.label || 'Live camera', url: null, stream };
-                });
-                setLiveInfo({
-                    label: track?.label || 'Live camera',
-                    width: settings.width ?? 0,
-                    height: settings.height ?? 0,
-                    frameRate: Math.round(settings.frameRate ?? 0),
-                    readyState: track?.readyState ?? 'unknown',
-                    stalled: false
-                });
-                // Restart the stall watchdog for the new device.
-                lastFrameAtRef.current = performance.now();
-                engine.resetAll();
-                bumpVersion();
-                // Device labels stay blank until a stream has been granted, so
-                // refresh the list now that we have permission.
-                const list = await navigator.mediaDevices.enumerateDevices();
-                setDevices(list.filter((d) => d.kind === 'videoinput'));
+                const primer = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                primer.getTracks().forEach((t) => t.stop());
+                deviceList = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+                setDevices(deviceList);
             } catch (err) {
                 setLiveError(err instanceof Error ? err.message : String(err));
+                return;
             }
+
+            setProbing('جارٍ البحث عن مدخل يرسل صورة…');
+            const candidates = buildCandidates(deviceList, deviceId);
+            const { result, failures } = await openFirstWorkingCamera(video, candidates, {
+                onProgress: (candidate, i, total) => setProbing(`(${i + 1}/${total}) تجربة ${candidate.description}…`)
+            });
+            setProbing(null);
+
+            if (!result) {
+                const silent = failures.filter((f) => f.reason === 'no-frames').length;
+                const errored = failures.find((f) => f.reason === 'error');
+                setLiveError(
+                    errored
+                        ? `تعذّر فتح الكاميرا: ${errored.message}`
+                        : `جُرّب ${silent} وضعاً على كل المداخل ولم تصل صورة من أي منها. الكاميرا تفتح لكنها لا ترسل بيانات.`
+                );
+                return;
+            }
+
+            const track = result.stream.getVideoTracks()[0];
+            setSource({
+                kind: 'live',
+                name: track?.label || 'Live camera',
+                url: null,
+                stream: result.stream
+            });
+            setLiveInfo({
+                label: track?.label || 'Live camera',
+                width: result.settings.width ?? 0,
+                height: result.settings.height ?? 0,
+                frameRate: Math.round(result.settings.frameRate ?? 0),
+                readyState: track?.readyState ?? 'unknown',
+                negotiated: result.candidate.description,
+                stalled: false
+            });
+            lastFrameAtRef.current = performance.now();
+            engine.resetAll();
+            bumpVersion();
         },
         [engine, bumpVersion]
     );
@@ -670,6 +706,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
         devices,
         liveError,
         liveInfo,
+        probing,
         cfg,
         setCfg,
         trackCfg,
