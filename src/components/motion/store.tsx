@@ -28,6 +28,23 @@ export interface SourceState {
     stream: MediaStream | null;
 }
 
+/** What the browser actually gave us for a live source, for diagnostics. */
+export interface LiveInfo {
+    label: string;
+    width: number;
+    height: number;
+    frameRate: number;
+    /** `live` once the device is producing; `ended` if it stopped. */
+    readyState: string;
+    /**
+     * True when the device opened but no frame ever arrived. A UVC camera that
+     * exposes several interfaces — the Pocket 3 shows up twice — will happily
+     * open the wrong one and then sit silent, which otherwise looks identical
+     * to a black room.
+     */
+    stalled: boolean;
+}
+
 export interface LiveStats {
     /** Analysed frames per second. */
     analysisFps: number;
@@ -61,6 +78,7 @@ interface StudioValue {
     stopSource: () => void;
     devices: MediaDeviceInfo[];
     liveError: string | null;
+    liveInfo: LiveInfo | null;
 
     cfg: DetectConfig;
     setCfg: (patch: Partial<DetectConfig>) => void;
@@ -140,6 +158,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
     const [source, setSource] = useState<SourceState>({ kind: 'none', name: '', url: null, stream: null });
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [liveError, setLiveError] = useState<string | null>(null);
+    const [liveInfo, setLiveInfo] = useState<LiveInfo | null>(null);
+    /** Wall-clock time of the last analysed frame, for the stall watchdog. */
+    const lastFrameAtRef = useRef(0);
 
     const [cfg, setCfgState] = useState<DetectConfig>(DEFAULT_DETECT_CONFIG);
     const [trackCfg, setTrackCfgState] = useState<TrackConfig>(DEFAULT_TRACK_CONFIG);
@@ -265,12 +286,23 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
                         : { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
                     audio: false
                 });
+                const track = stream.getVideoTracks()[0];
+                const settings = track?.getSettings?.() ?? {};
                 setSource((prev) => {
                     if (prev.url) URL.revokeObjectURL(prev.url);
                     prev.stream?.getTracks().forEach((t) => t.stop());
-                    const label = stream.getVideoTracks()[0]?.label || 'Live camera';
-                    return { kind: 'live', name: label, url: null, stream };
+                    return { kind: 'live', name: track?.label || 'Live camera', url: null, stream };
                 });
+                setLiveInfo({
+                    label: track?.label || 'Live camera',
+                    width: settings.width ?? 0,
+                    height: settings.height ?? 0,
+                    frameRate: Math.round(settings.frameRate ?? 0),
+                    readyState: track?.readyState ?? 'unknown',
+                    stalled: false
+                });
+                // Restart the stall watchdog for the new device.
+                lastFrameAtRef.current = performance.now();
                 engine.resetAll();
                 bumpVersion();
                 // Device labels stay blank until a stream has been granted, so
@@ -303,8 +335,41 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
         } else if (source.kind === 'live' && source.stream) {
             video.removeAttribute('src');
             video.srcObject = source.stream;
-            video.play().catch(() => undefined);
+            // Never swallow this: a rejected play() is the difference between
+            // "the room is dark" and "the browser refused to start the video",
+            // and the user cannot tell those apart from a black rectangle.
+            video.play().catch((err: unknown) => {
+                setLiveError(`تعذّر تشغيل البث: ${err instanceof Error ? err.message : String(err)}`);
+            });
         }
+    }, [source]);
+
+    /**
+     * Stall watchdog for live sources.
+     *
+     * Opening a camera and receiving frames from it are two different things.
+     * Multi-interface UVC devices — the Pocket 3 enumerates twice — let the
+     * wrong interface open successfully and then deliver nothing.
+     */
+    useEffect(() => {
+        if (source.kind !== 'live') {
+            setLiveInfo(null);
+            return;
+        }
+        const timer = window.setInterval(() => {
+            const silentFor = performance.now() - lastFrameAtRef.current;
+            const track = source.stream?.getVideoTracks()[0];
+            setLiveInfo((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          readyState: track?.readyState ?? prev.readyState,
+                          stalled: silentFor > 3000
+                      }
+                    : prev
+            );
+        }, 1000);
+        return () => window.clearInterval(timer);
     }, [source]);
 
     useEffect(() => {
@@ -402,6 +467,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
 
         const onFrame = (_now: number, meta: VideoFrameMeta) => {
             if (stopped) return;
+            // Mark arrival here rather than inside `analyse`: a frame that
+            // arrived while analysis was paused is still proof the camera works.
+            lastFrameAtRef.current = performance.now();
             if (lastPresented >= 0 && meta.presentedFrames > lastPresented && meta.mediaTime > lastMediaTime) {
                 const dFrames = meta.presentedFrames - lastPresented;
                 const dTime = meta.mediaTime - lastMediaTime;
@@ -425,7 +493,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
 
         const onRaf = () => {
             if (stopped) return;
-            if (!video.paused && !video.ended) analyse(video.currentTime);
+            if (!video.paused && !video.ended) {
+                // Without frame callbacks, an advancing currentTime is the only
+                // evidence that frames are actually arriving.
+                if (video.currentTime !== lastAnalysedTime) lastFrameAtRef.current = performance.now();
+                analyse(video.currentTime);
+            }
             rafHandle = requestAnimationFrame(onRaf);
         };
 
@@ -596,6 +669,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
         stopSource,
         devices,
         liveError,
+        liveInfo,
         cfg,
         setCfg,
         trackCfg,

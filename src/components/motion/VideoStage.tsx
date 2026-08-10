@@ -234,6 +234,15 @@ export function VideoStage(): React.ReactElement {
                         </p>
                     </div>
                 )}
+                {studio.liveInfo?.stalled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 p-6 text-center">
+                        <p className="text-sm font-semibold text-amber-200">لا تصل إطارات من الكاميرا</p>
+                        <p className="max-w-sm text-xs text-white/70">
+                            الجهاز فُتح بنجاح لكنه لا يرسل صورة. الكاميرا تظهر بأكثر من مدخل بنفس الاسم — جرّب المدخل الآخر من
+                            لوحة «المصدر»، وتأكد أن شاشة الكاميرا في وضع الويب كام.
+                        </p>
+                    </div>
+                )}
                 {tool !== 'none' && <ToolHint tool={tool} pending={pendingAngle.length} />}
             </div>
             <Transport />

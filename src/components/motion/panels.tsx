@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { useStudio, type Tool } from './store';
+import { useStudio, type LiveInfo, type Tool } from './store';
 import { Button, Field, Hint, NumberInput, Panel, Segmented, Select, Slider, Stat, TextInput, Toggle } from './ui';
 import { POCKET3_PRESETS, SHOOTING_TIPS_AR } from '../../lib/motion/presets';
 import { angleAt } from '../../lib/motion/angles';
@@ -16,9 +16,18 @@ import {
 
 /** Choosing and connecting the video source. */
 export function SourcePanel(): React.ReactElement {
-    const { source, openFile, startLive, stopSource, devices, liveError, preset } = useStudio();
+    const { source, openFile, startLive, stopSource, devices, liveError, liveInfo, preset } = useStudio();
     const fileRef = useRef<HTMLInputElement | null>(null);
     const deviceRef = useRef<HTMLSelectElement | null>(null);
+
+    // A UVC camera often exposes several interfaces under one name — the
+    // Pocket 3 lists twice, and only one of them delivers frames. Numbering
+    // them is what makes "try the other one" possible.
+    const deviceLabels = devices.map((d, i) => {
+        const base = d.label || `كاميرا ${d.deviceId.slice(0, 6)}`;
+        const duplicates = devices.filter((o) => (o.label || '') === (d.label || ''));
+        return duplicates.length > 1 ? `${base} — مدخل ${duplicates.indexOf(d) + 1}` : base;
+    });
 
     return (
         <Panel title="المصدر" subtitle="ملف مسجّل أو بث مباشر من الكاميرا">
@@ -49,13 +58,15 @@ export function SourcePanel(): React.ReactElement {
                     defaultValue=""
                 >
                     <option value="">الكاميرا الافتراضية</option>
-                    {devices.map((d) => (
+                    {devices.map((d, i) => (
                         <option key={d.deviceId} value={d.deviceId}>
-                            {d.label || `كاميرا ${d.deviceId.slice(0, 6)}`}
+                            {deviceLabels[i]}
                         </option>
                     ))}
                 </select>
             </Field>
+
+            {liveInfo && <LiveDiagnostics info={liveInfo} onRetry={() => startLive(deviceRef.current?.value || undefined)} />}
 
             {source.kind !== 'none' && (
                 <div className="flex items-center justify-between gap-2 rounded bg-black/25 px-3 py-2">
@@ -79,6 +90,55 @@ export function SourcePanel(): React.ReactElement {
                 <PresetSelect />
             </Field>
         </Panel>
+    );
+}
+
+/**
+ * Reports what the opened device is actually doing.
+ *
+ * The failure this exists for: the browser opens the camera successfully, the
+ * UI shows a live source, and the picture stays black because no frames ever
+ * arrive. Without this panel that state is indistinguishable from a dark room,
+ * and the user has nothing to act on.
+ */
+function LiveDiagnostics({ info, onRetry }: { info: LiveInfo; onRetry: () => void }): React.ReactElement {
+    const ended = info.readyState === 'ended';
+    const bad = info.stalled || ended;
+
+    return (
+        <div
+            className={`rounded border px-3 py-2.5 text-[11px] leading-relaxed ${
+                bad ? 'border-amber-400/40 bg-amber-500/10 text-amber-100' : 'border-green-400/30 bg-green-500/10 text-green-100'
+            }`}
+        >
+            <p className="font-semibold">
+                {ended
+                    ? 'انقطع الاتصال بالكاميرا'
+                    : info.stalled
+                      ? 'الكاميرا مفتوحة لكن لا تصل منها إطارات'
+                      : 'البث يعمل'}
+            </p>
+            <p className="mt-1 font-mono text-[10px] text-white/70">
+                {info.width && info.height ? `${info.width}×${info.height}` : 'أبعاد غير معروفة'}
+                {info.frameRate ? ` · ${info.frameRate} fps` : ''} · {info.readyState}
+            </p>
+            {bad && (
+                <>
+                    <ul className="mt-2 flex list-disc flex-col gap-1 ps-4">
+                        <li>
+                            الكاميرا تظهر بأكثر من مدخل بنفس الاسم — جرّب «مدخل ٢» بدل «مدخل ١» من القائمة أعلاه، فواحد منهما
+                            فقط ينقل الصورة.
+                        </li>
+                        <li>تأكد أن شاشة الكاميرا تعرض وضع «الويب كام» وليست في وضع التصوير العادي أو مطفأة.</li>
+                        <li>أغلق أي برنامج آخر يستخدم الكاميرا (Zoom، OBS، Teams) — بعض الأجهزة تسمح ببرنامج واحد فقط.</li>
+                        <li>استخدم كابل USB ينقل البيانات (بعض الكابلات للشحن فقط)، ويفضّل منفذاً مباشراً لا موزّعاً.</li>
+                    </ul>
+                    <div className="mt-2">
+                        <Button onClick={onRetry}>إعادة المحاولة بالمدخل المحدد</Button>
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
 
