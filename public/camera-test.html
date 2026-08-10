@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>اختبار الكاميرا الخام</title>
+        <!--
+            Deliberately dependency-free: no framework, no bundler, no shared
+            code with the motion studio. If the camera is black here too, the
+            fault is outside the application entirely — driver, cable, camera
+            mode or OS permission — and no amount of app-side work will fix it.
+            That is the whole point of this page: to end the guessing.
+        -->
+        <style>
+            body {
+                margin: 0;
+                padding: 1.5rem;
+                background: #16202b;
+                color: #e8edf2;
+                font: 14px/1.7 system-ui, -apple-system, 'Segoe UI', sans-serif;
+            }
+            h1 {
+                font-size: 1.25rem;
+                margin: 0 0 0.25rem;
+            }
+            p.sub {
+                margin: 0 0 1.25rem;
+                color: #9fb0c0;
+                font-size: 0.85rem;
+            }
+            button {
+                background: #f67280;
+                color: #101828;
+                border: 0;
+                border-radius: 4px;
+                padding: 0.6rem 1rem;
+                font: inherit;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            button.ghost {
+                background: #26333f;
+                color: #e8edf2;
+            }
+            button:disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+            .row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+            video {
+                width: 100%;
+                max-width: 640px;
+                background: #000;
+                border: 1px solid #2a3846;
+                border-radius: 6px;
+                display: block;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                max-width: 900px;
+                margin-top: 1rem;
+                font-size: 0.8rem;
+            }
+            th,
+            td {
+                border-bottom: 1px solid #2a3846;
+                padding: 0.5rem;
+                text-align: right;
+                vertical-align: top;
+            }
+            th {
+                color: #9fb0c0;
+                font-weight: 600;
+            }
+            .ok {
+                color: #4ade80;
+            }
+            .bad {
+                color: #fbbf24;
+            }
+            code,
+            .ltr {
+                direction: ltr;
+                unicode-bidi: isolate;
+                font-family: ui-monospace, monospace;
+                font-size: 0.78rem;
+            }
+            #log {
+                margin-top: 1rem;
+                max-height: 320px;
+                overflow: auto;
+                background: #0e1720;
+                border: 1px solid #2a3846;
+                border-radius: 6px;
+                padding: 0.75rem;
+            }
+            #log div {
+                border-bottom: 1px solid #1b2733;
+                padding: 0.2rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>اختبار الكاميرا الخام</h1>
+        <p class="sub">
+            هذه الصفحة لا تستخدم أي جزء من تطبيق تحليل الحركة — HTML وJavaScript فقط. لو ظهرت الصورة سوداء هنا أيضاً، فالمشكلة
+            في الكاميرا أو التعريف أو الكابل أو صلاحيات النظام، لا في التطبيق.
+        </p>
+
+        <div class="row">
+            <button id="scan">١) اسمح بالوصول واعرض المداخل</button>
+            <button id="testAll" class="ghost" disabled>٢) اختبر كل مدخل بكل دقة</button>
+            <button id="stop" class="ghost" disabled>إيقاف</button>
+        </div>
+
+        <video id="preview" playsinline muted autoplay></video>
+        <p id="status" class="sub" style="margin-top: 0.75rem"></p>
+
+        <table id="results" hidden>
+            <thead>
+                <tr>
+                    <th>المدخل</th>
+                    <th>الدقة المطلوبة</th>
+                    <th>النتيجة</th>
+                    <th>ما سلّمه الجهاز</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div id="log"></div>
+
+        <script>
+            const video = document.getElementById('preview');
+            const statusEl = document.getElementById('status');
+            const logEl = document.getElementById('log');
+            const resultsEl = document.getElementById('results');
+            const tbody = resultsEl.querySelector('tbody');
+            const scanBtn = document.getElementById('scan');
+            const testBtn = document.getElementById('testAll');
+            const stopBtn = document.getElementById('stop');
+
+            let devices = [];
+            let current = null;
+
+            const log = (msg, cls) => {
+                const d = document.createElement('div');
+                d.className = cls || '';
+                d.innerHTML = new Date().toLocaleTimeString('en-GB') + ' — ' + msg;
+                logEl.prepend(d);
+            };
+
+            const stopCurrent = () => {
+                if (current) {
+                    current.getTracks().forEach((t) => t.stop());
+                    current = null;
+                }
+                video.srcObject = null;
+            };
+
+            // Counting presented frames is the only honest test. A track can sit
+            // in readyState "live" forever without ever producing a picture.
+            function countFrames(el, ms) {
+                return new Promise((resolve) => {
+                    let frames = 0;
+                    let done = false;
+                    const finish = () => {
+                        if (done) return;
+                        done = true;
+                        resolve(frames);
+                    };
+                    setTimeout(finish, ms);
+                    if (typeof el.requestVideoFrameCallback === 'function') {
+                        const tick = () => {
+                            if (done) return;
+                            frames++;
+                            el.requestVideoFrameCallback(tick);
+                        };
+                        el.requestVideoFrameCallback(tick);
+                    } else {
+                        let last = -1;
+                        const id = setInterval(() => {
+                            if (done) return clearInterval(id);
+                            if (el.currentTime !== last && el.currentTime > 0) {
+                                last = el.currentTime;
+                                frames++;
+                            }
+                        }, 60);
+                    }
+                });
+            }
+
+            scanBtn.onclick = async () => {
+                statusEl.textContent = 'جارٍ طلب الإذن…';
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({ video: true });
+                    s.getTracks().forEach((t) => t.stop());
+                    log('الإذن مُنح.', 'ok');
+                } catch (e) {
+                    log('فشل طلب الإذن: <code>' + e.name + ': ' + e.message + '</code>', 'bad');
+                    statusEl.textContent = 'المتصفح رفض الوصول للكاميرا. هذا ليس خطأ في التطبيق.';
+                    return;
+                }
+                devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+                log('عدد مداخل الفيديو: <b>' + devices.length + '</b>');
+                devices.forEach((d, i) =>
+                    log('مدخل ' + (i + 1) + ': <code>' + (d.label || '(بلا اسم)') + ' | ' + d.deviceId.slice(0, 16) + '…</code>')
+                );
+                statusEl.textContent = 'وُجد ' + devices.length + ' مدخل. اضغط «اختبر كل مدخل».';
+                testBtn.disabled = devices.length === 0;
+            };
+
+            const MODES = [
+                { name: 'افتراضي الجهاز', c: {} },
+                { name: '1920×1080', c: { width: { ideal: 1920 }, height: { ideal: 1080 } } },
+                { name: '1280×720', c: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+                { name: '640×480', c: { width: { ideal: 640 }, height: { ideal: 480 } } }
+            ];
+
+            testBtn.onclick = async () => {
+                testBtn.disabled = true;
+                scanBtn.disabled = true;
+                stopBtn.disabled = false;
+                tbody.innerHTML = '';
+                resultsEl.hidden = false;
+                let anyWorked = false;
+
+                for (let i = 0; i < devices.length; i++) {
+                    for (const mode of MODES) {
+                        stopCurrent();
+                        const label = 'مدخل ' + (i + 1);
+                        statusEl.textContent = 'اختبار ' + label + ' — ' + mode.name + '…';
+                        const row = tbody.insertRow();
+                        row.insertCell().textContent = label;
+                        row.insertCell().textContent = mode.name;
+                        const resultCell = row.insertCell();
+                        const detailCell = row.insertCell();
+                        detailCell.className = 'ltr';
+
+                        let stream;
+                        try {
+                            stream = await navigator.mediaDevices.getUserMedia({
+                                video: { deviceId: { exact: devices[i].deviceId }, ...mode.c },
+                                audio: false
+                            });
+                        } catch (e) {
+                            resultCell.textContent = 'فشل الفتح';
+                            resultCell.className = 'bad';
+                            detailCell.textContent = e.name + ': ' + e.message;
+                            continue;
+                        }
+
+                        current = stream;
+                        video.srcObject = stream;
+                        video.play().catch(() => {});
+
+                        const frames = await countFrames(video, 2500);
+                        const track = stream.getVideoTracks()[0];
+                        const st = (track && track.getSettings && track.getSettings()) || {};
+                        detailCell.textContent =
+                            (st.width || '?') + '×' + (st.height || '?') + ' @ ' + Math.round(st.frameRate || 0) + 'fps · ' + (track ? track.readyState : '?');
+
+                        if (frames >= 3) {
+                            resultCell.textContent = '✅ وصلت ' + frames + ' إطار';
+                            resultCell.className = 'ok';
+                            log('نجح: ' + label + ' — ' + mode.name + ' (' + frames + ' إطار)', 'ok');
+                            anyWorked = true;
+                            statusEl.textContent =
+                                'نجح! ' + label + ' بدقة ' + mode.name + ' يرسل صورة. استخدم هذا المدخل في التطبيق.';
+                            stopBtn.disabled = false;
+                            scanBtn.disabled = false;
+                            return; // Stop at the first working combination.
+                        }
+
+                        resultCell.textContent = frames === 0 ? '⛔ صفر إطار' : '⚠ ' + frames + ' إطار فقط';
+                        resultCell.className = 'bad';
+                        log(label + ' — ' + mode.name + ': ' + frames + ' إطار', 'bad');
+                    }
+                }
+
+                stopCurrent();
+                scanBtn.disabled = false;
+                testBtn.disabled = false;
+                if (!anyWorked) {
+                    statusEl.innerHTML =
+                        '<b class="bad">لم يسلّم أي مدخل صورة.</b> الكاميرا تُفتح لكنها لا ترسل بيانات إلى المتصفح — ' +
+                        'المشكلة خارج التطبيق: وضع الكاميرا، أو التعريف، أو الكابل، أو صلاحية الكاميرا في نظام التشغيل.';
+                }
+            };
+
+            stopBtn.onclick = () => {
+                stopCurrent();
+                stopBtn.disabled = true;
+                statusEl.textContent = 'أُوقف البث.';
+            };
+
+            log('جاهز. اضغط «اسمح بالوصول واعرض المداخل».');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log('هذا المتصفح لا يدعم getUserMedia، أو الصفحة ليست على localhost/HTTPS.', 'bad');
+            }
+        </script>
+    </body>
+</html>
