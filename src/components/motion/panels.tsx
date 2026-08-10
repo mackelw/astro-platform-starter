@@ -118,7 +118,9 @@ function LiveDiagnostics({ info, onRetry }: { info: LiveInfo; onRetry: () => voi
                       ? 'الكاميرا مفتوحة لكن لا تصل منها إطارات'
                       : 'البث يعمل'}
             </p>
-            <p className="mt-1 font-mono text-[10px] text-white/70">
+            {/* dir="ltr": in an RTL paragraph the bidi algorithm reorders
+                "1920×1080" into "1080×1920", which reads as a wrong resolution. */}
+            <p dir="ltr" className="mt-1 text-start font-mono text-[10px] text-white/70">
                 {info.width && info.height ? `${info.width}×${info.height}` : 'أبعاد غير معروفة'}
                 {info.frameRate ? ` · ${info.frameRate} fps` : ''} · {info.readyState}
             </p>
