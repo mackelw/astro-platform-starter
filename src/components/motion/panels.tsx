@@ -99,6 +99,7 @@ export function SourcePanel(): React.ReactElement {
             <Field label="نمط التصوير في الكاميرا" hint={preset.noteAr}>
                 <PresetSelect />
             </Field>
+            <TimeScaleNotice />
         </Panel>
     );
 }
@@ -151,6 +152,32 @@ function LiveDiagnostics({ info, onRetry }: { info: LiveInfo; onRetry: () => voi
                     </div>
                 </>
             )}
+        </div>
+    );
+}
+
+/**
+ * Warns whenever the selected mode is not real time.
+ *
+ * A slow-motion mode multiplies every reported speed — by four, for the
+ * Pocket 3's modes. That is correct when the footage really was retimed and
+ * badly wrong when it was not, and the difference is invisible in the numbers
+ * themselves. So it gets stated where the mode is chosen, not buried in a
+ * telemetry tile.
+ */
+function TimeScaleNotice(): React.ReactElement | null {
+    const { timeScale, cal, applyPreset } = useStudio();
+    if (Math.abs(timeScale - 1) < 0.01) return null;
+    return (
+        <div className="rounded border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-[11px] leading-relaxed text-amber-100">
+            <p className="font-semibold">كل السرعات مضروبة في {timeScale.toFixed(2)}</p>
+            <p className="mt-1">
+                النمط المختار حركة بطيئة ({cal.captureFps} إطار/ث تصوير، {cal.timelineFps} إطار/ث عرض). لو كان المقطع تصويراً
+                عادياً فالأرقام المعروضة أكبر من الحقيقة {timeScale.toFixed(0)} مرات.
+            </p>
+            <div className="mt-2">
+                <Button onClick={() => applyPreset(`1080p${cal.timelineFps}`)}>هذا تصوير عادي — صحّح المعامل</Button>
+            </div>
         </div>
     );
 }

@@ -4,7 +4,8 @@ import { BlobFinder } from './blobs';
 import { DEFAULT_TRACK_CONFIG, MultiTracker } from './tracker';
 import { TemplateTracker } from './template';
 import { GlobalMotionEstimator } from './globalMotion';
-import { computeKinematics, pixelsPerMetre, realTimeScale } from './kinematics';
+import { DEFAULT_CALIBRATION, computeKinematics, pixelsPerMetre, realTimeScale } from './kinematics';
+import { POCKET3_PRESETS, guessPreset } from './presets';
 import { angleAt, segmentAngle } from './angles';
 import { toGray } from './image';
 import type { Calibration, Track } from './types';
@@ -311,5 +312,35 @@ describe('angles', () => {
 
     it('treats up-on-screen as a positive segment angle', () => {
         expect(segmentAngle({ x: 0, y: 10 }, { x: 10, y: 0 })).toBeCloseTo(45, 6);
+    });
+});
+
+describe('recording-mode identification', () => {
+    it('reads an ordinary clip as real time, never as slow motion', () => {
+        // The defect this pins down: with no real-time preset at a given rate,
+        // an ordinary clip matched a slow-motion one and every reported speed
+        // came out four times too high, silently.
+        for (const fps of [24, 25, 30, 48, 50, 60]) {
+            for (const [w, h] of [
+                [1920, 1080],
+                [3840, 2160],
+                [2720, 1530]
+            ]) {
+                const guess = guessPreset(w, h, fps);
+                expect(guess, `${w}x${h} @ ${fps}`).not.toBeNull();
+                expect(guess!.captureFps, `${w}x${h} @ ${fps}`).toBe(guess!.timelineFps);
+                expect(realTimeScale({ ...DEFAULT_CALIBRATION, ...guess! }), `${w}x${h} @ ${fps}`).toBe(1);
+            }
+        }
+    });
+
+    it('offers the slow-motion modes for explicit selection', () => {
+        const slowMo = POCKET3_PRESETS.filter((p) => p.captureFps !== p.timelineFps && p.id !== 'custom');
+        expect(slowMo.length).toBeGreaterThan(0);
+        for (const p of slowMo) expect(p.captureFps / p.timelineFps).toBe(4);
+    });
+
+    it('declines to guess when the resolution is not a Pocket 3 mode', () => {
+        expect(guessPreset(1280, 720, 30)).toBeNull();
     });
 });
