@@ -1,3 +1,10 @@
+---
+// Standalone camera diagnostic. Deliberately not wrapped in Layout and not
+// processed by Astro: no framework, no bundling, no shared code with the
+// motion studio. Its whole value is that a black picture here cannot be
+// blamed on the application, so it must stay independent of it.
+---
+
 <!doctype html>
 <html lang="ar" dir="rtl">
     <head>
@@ -11,7 +18,7 @@
             mode or OS permission — and no amount of app-side work will fix it.
             That is the whole point of this page: to end the guessing.
         -->
-        <style>
+        <style is:inline>
             body {
                 margin: 0;
                 padding: 1.5rem;
@@ -136,7 +143,7 @@
 
         <div id="log"></div>
 
-        <script>
+        <script is:inline>
             const video = document.getElementById('preview');
             const statusEl = document.getElementById('status');
             const logEl = document.getElementById('log');
