@@ -1,0 +1,467 @@
+{
+  "schema": "graphify_ontology_citations_v1",
+  "graph_signature": "bedbb6a8953972fb15c8fa9ce5148bd799d3d3013b746f06fe6028a144025d88",
+  "nodes": {
+    "api_blob_get": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/api/blob.ts",
+          "source_location": "document",
+          "quote": "export const GET: APIRoute = async (context) => { const urlParams = new URL(context.url); const key = urlParams.searchParams.get('key'); if (!key) { return new Response('Bad Request', { status: 400 }); }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "api_blobs_get": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/api/blobs.ts",
+          "source_location": "document",
+          "quote": "export const GET: APIRoute = async ({ request }) => { try { const blobStore = getStore({ name: 'shapes', consistency: 'strong' }); const data = await blobStore.list(); const keys = data.blobs.map(({ key }) => key); return new …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p4"
+        }
+      ]
+    },
+    "api_blobs_post": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/api/blobs.ts",
+          "source_location": "document",
+          "quote": "export const POST: APIRoute = async ({ request }) => { if (uploadDisabled) throw new Error('Sorry, uploads are disabled');",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "api_revalidate_post": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/api/revalidate.ts",
+          "source_location": "document",
+          "quote": "export const POST: APIRoute = async ({ request }) => { const { tags } = await request.json();",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "components_newshape_newshape": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/NewShape.tsx",
+          "source_location": "document",
+          "quote": "export default function NewShape(props: Props) { const { setLastMutationTime } = props; const [blobData, setBlobData] = useState<BlobProps>(); const [wasUploaded, setWasUploaded] = useState<boolean>(false);",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "components_newshape_props": {
+      "count": 3,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/NewShape.tsx",
+          "source_location": "document",
+          "quote": "… ShapePreview from './ShapePreview.tsx'; import { generateBlob, uploadDisabled } from '../../../utils'; import type { BlobProps } from '../../../types.ts';",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p0"
+        },
+        {
+          "source_file": "src/pages/blobs/_components/NewShape.tsx",
+          "source_location": "document",
+          "quote": "interface Props { setLastMutationTime?: Dispatch<SetStateAction<number>>; }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        },
+        {
+          "source_file": "src/pages/blobs/_components/NewShape.tsx",
+          "source_location": "document",
+          "quote": "export default function NewShape(props: Props) { const { setLastMutationTime } = props; const [blobData, setBlobData] = useState<BlobProps>(); const [wasUploaded, setWasUploaded] = useState<boolean>(false);",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "components_shapeeditor_shapeeditor": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/ShapeEditor.tsx",
+          "source_location": "document",
+          "quote": "export default function ShapeEditor() { const [lastMutationTime, setLastMutationTime] = useState<number>(null);",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "components_shapepreview_shapepreview": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/ShapePreview.tsx",
+          "source_location": "document",
+          "quote": "export default function ShapePreview(props: BlobProps) { const { svgPath, parameters } = props; const gradientId = `gradient-${randomInt(10_000_000, 100_000_000)}`;",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "components_storedshapes_props": {
+      "count": 3,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/StoredShapes.tsx",
+          "source_location": "document",
+          "quote": "… import ShapePreview from './ShapePreview.tsx'; import { generateBlob } from '../../../utils'; import type { BlobProps } from '../../../types.ts';",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p0"
+        },
+        {
+          "source_file": "src/pages/blobs/_components/StoredShapes.tsx",
+          "source_location": "document",
+          "quote": "interface Props { lastMutationTime: number; }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        },
+        {
+          "source_file": "src/pages/blobs/_components/StoredShapes.tsx",
+          "source_location": "document",
+          "quote": "export default function StoredShapes(props: Props) { const { lastMutationTime } = props; const [keys, setKeys] = useState<string[]>([]); const [selectedKey, setSelectedKey] = useState<string>(null); const [previewData, setPreviewData] = useState<BlobProps>(null …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "components_storedshapes_storedshapes": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/pages/blobs/_components/StoredShapes.tsx",
+          "source_location": "document",
+          "quote": "export default function StoredShapes(props: Props) { const { lastMutationTime } = props; const [keys, setKeys] = useState<string[]>([]); const [selectedKey, setSelectedKey] = useState<string>(null); const [previewData, setPreviewData] …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        }
+      ]
+    },
+    "edge_functions_rewrite_config": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "netlify/edge-functions/rewrite.js",
+          "source_location": "document",
+          "quote": "export const config = { path: '/edge' };",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "pages_image_cdn_showimagesize": {
+      "count": 2,
+      "citations": [
+        {
+          "source_file": "src/pages/image-cdn.astro",
+          "source_location": "Original vs. optimized image: can you tell the difference?",
+          "quote": "images.forEach((image) => { if (image.complete) { showImageSize(image); } else { image.addEventListener('load', () => { showImageSize(image); }); } });",
+          "confidence": "EXTRACTED",
+          "section": "Original vs. optimized image: can you tell the difference?",
+          "paragraph_id": "p15"
+        },
+        {
+          "source_file": "src/pages/image-cdn.astro",
+          "source_location": "Original vs. optimized image: can you tell the difference?",
+          "quote": "function showImageSize(image: HTMLImageElement) { const imageEntry = window?.performance?.getEntriesByName(image.currentSrc)?.[0] as PerformanceResourceTiming; if (imageEntry && imageEntry.encodedBodySize) { const imageOverlay …",
+          "confidence": "EXTRACTED",
+          "section": "Original vs. optimized image: can you tell the difference?",
+          "paragraph_id": "p16"
+        }
+      ]
+    },
+    "pages_revalidation_revalidate": {
+      "count": 4,
+      "citations": [
+        {
+          "source_file": "src/pages/revalidation.astro",
+          "source_location": "document",
+          "quote": "… Content</h1> <Markdown content={explainer} class=\"mb-10\" /> <div class=\"flex flex-wrap gap-4\"> <button class=\"revalidate-button btn\" data-tag={exampleTag}>Invalidate tag: {exampleTag}</button> <button class=\"btn\" onclick=\"location.reload()\">Reload page</button> </div> </Layout>",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p11"
+        },
+        {
+          "source_file": "src/pages/revalidation.astro",
+          "source_location": "document",
+          "quote": "<script> function revalidate(tag: string) { fetch('/api/revalidate', { method: 'POST', body: JSON.stringify({ tags: [tag] }), headers: { 'Content-Type': 'application/json' } }); alert(`Invalidated tag: ${tag}`); }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p12"
+        },
+        {
+          "source_file": "src/pages/revalidation.astro",
+          "source_location": "document",
+          "quote": "const revalidateButton = document.querySelectorAll('button.revalidate-button')[0]; revalidateButton.addEventListener('click', (e) => { const tag = (e.target as HTMLButtonElement).getAttribute('data-tag'); revalidate(tag …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p13"
+        },
+        {
+          "source_file": "src/pages/revalidation.astro",
+          "source_location": "document",
+          "quote": "In real-world applications, you may want to use [stale-while-revalidate](https://docs.netlify.com/platform/caching/#stale-while-revalidate-directive) as well, so that end-users don't experience a performance hit as pages are being rebuilt.",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p8"
+        }
+      ]
+    },
+    "readme_astro_js": {
+      "count": 2,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Astro on Netlify Platform Starter",
+          "quote": "A modern starter based on Astro.js, Tailwind, and [Netlify Core Primitives](https://docs.netlify.com/core/overview/#develop) (Edge Functions, Image CDN, Blob Store).",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Astro on Netlify Platform Starter",
+          "paragraph_id": "p1"
+        },
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Developing Locally",
+          "quote": "4. Then, run the Astro.js development server via Netlify CLI:",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Developing Locally",
+          "paragraph_id": "p11"
+        }
+      ]
+    },
+    "readme_dev_server": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Astro Commands",
+          "quote": "… install` | Installs dependencies | | `npm run dev` | Starts local dev server at `localhost:4321` | | `npm run build` | Build your production site to `./dist/` | | `npm run preview` | Preview your build locally, before deploying | | `npm …",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Astro Commands",
+          "paragraph_id": "p3"
+        }
+      ]
+    },
+    "readme_netlify_cli": {
+      "count": 2,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Developing Locally",
+          "quote": "4. Then, run the Astro.js development server via Netlify CLI:",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Developing Locally",
+          "paragraph_id": "p11"
+        },
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Developing Locally",
+          "quote": "… full functionality locally (e.g. edge functions, blob store), please ensure you have an up-to-date version of Netlify CLI. Run:",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Developing Locally",
+          "paragraph_id": "p7"
+        }
+      ]
+    },
+    "readme_netlify_core_primitives": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Astro on Netlify Platform Starter",
+          "quote": "A modern starter based on Astro.js, Tailwind, and [Netlify Core Primitives](https://docs.netlify.com/core/overview/#develop) (Edge Functions, Image CDN, Blob Store).",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Astro on Netlify Platform Starter",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "readme_netlify_dev": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Developing Locally",
+          "quote": "``` netlify dev ```",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Developing Locally",
+          "paragraph_id": "p12"
+        }
+      ]
+    },
+    "readme_netlify_link": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Developing Locally",
+          "quote": "``` netlify link ```",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Developing Locally",
+          "paragraph_id": "p10"
+        }
+      ]
+    },
+    "readme_tailwind": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "README.md",
+          "source_location": "p.1 · Astro on Netlify Platform Starter",
+          "quote": "A modern starter based on Astro.js, Tailwind, and [Netlify Core Primitives](https://docs.netlify.com/core/overview/#develop) (Edge Functions, Image CDN, Blob Store).",
+          "confidence": "EXTRACTED",
+          "page": 1,
+          "section": "Astro on Netlify Platform Starter",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "src_types_blobparameterprops": {
+      "count": 2,
+      "citations": [
+        {
+          "source_file": "src/types.ts",
+          "source_location": "document",
+          "quote": "export type BlobParameterProps = { seed: number; size: number; edges: number; growth: number; name: string; colors: string[]; };",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p0"
+        },
+        {
+          "source_file": "src/types.ts",
+          "source_location": "document",
+          "quote": "export type BlobProps = { svgPath: string; parameters: BlobParameterProps; };",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "src_types_blobprops": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/types.ts",
+          "source_location": "document",
+          "quote": "export type BlobProps = { svgPath: string; parameters: BlobParameterProps; };",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "src_utils_cacheheaders": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "export function cacheHeaders(maxAgeDays = 365, cacheTags?: string[]): Record<string, string> { // As far as the browser is concerned, it must revalidate on every request. // However, Netlify CDN is told to keep the content cached …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p6"
+        }
+      ]
+    },
+    "src_utils_generateblob": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "export function generateBlob(parameters?: any) { const gradientColors = [ ['#2E3192', '#1BFFFF'], ['#93A5CF', '#E4EfE9'], ['#BFF098', '#6FD6FF'], ['#A1C4FD', '#C2E9FB'], ['#11998E', '#38EF7D'], ['#D8B5FF', '#1EAE98'] ];",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p4"
+        }
+      ]
+    },
+    "src_utils_getnetlifycontext": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "// Note: this only works on the server side export function getNetlifyContext() { return process.env.CONTEXT; }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    },
+    "src_utils_randomint": {
+      "count": 3,
+      "citations": [
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "export function randomInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1) + min); }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p2"
+        },
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "… dictionaries: [adjectives, animals], separator: '-', length: 2 }; return uniqueNamesGenerator(config) + '-' + randomInt(100, 999); }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p3"
+        },
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "parameters = { seed: null, size: 512, edges: randomInt(3, 20), growth: randomInt(2, 9), name: uniqueName(), colors: gradientColors[randomInt(0, gradientColors.length - 1)], ...parameters }; const { path: svgPath, seedValue: seed } = blobshape(parameters); …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p5"
+        }
+      ]
+    },
+    "src_utils_uniquename": {
+      "count": 3,
+      "citations": [
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "import blobshape from 'blobshape'; import { uniqueNamesGenerator, adjectives, animals } from 'unique-names-generator';",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p0"
+        },
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "export function uniqueName() { const config = { dictionaries: [adjectives, animals], separator: '-', length: 2 }; return uniqueNamesGenerator(config) + '-' + randomInt(100, 999); }",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p3"
+        },
+        {
+          "source_file": "src/utils.ts",
+          "source_location": "document",
+          "quote": "parameters = { seed: null, size: 512, edges: randomInt(3, 20), growth: randomInt(2, 9), name: uniqueName(), colors: gradientColors[randomInt(0, gradientColors.length - 1)], ...parameters }; const { path: svgPath, seedValue: seed } = blobshape(parameters); return { parameters: { ...parameters, seed }, svgPath …",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p5"
+        }
+      ]
+    },
+    "utils_highlighter_highlighterpromise": {
+      "count": 1,
+      "citations": [
+        {
+          "source_file": "src/utils/highlighter.ts",
+          "source_location": "document",
+          "quote": "export const highlighterPromise = createHighlighter({ langs: ['jsx', 'js'], themes: ['min-dark'] });",
+          "confidence": "EXTRACTED",
+          "paragraph_id": "p1"
+        }
+      ]
+    }
+  }
+}
