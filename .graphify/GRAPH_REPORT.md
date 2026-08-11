@@ -11,7 +11,7 @@
 
 
 ## Graph Freshness
-- Built from Git commit: `fe90396`
+- Built from Git commit: `5d4f1f6`
 - Compare this hash to `git rev-parse HEAD` before trusting freshness-sensitive graph output.
 ## God Nodes (most connected - your core abstractions)
 1. `Astro on Netlify Platform Starter` - 7 edges
