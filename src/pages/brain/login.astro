@@ -1,0 +1,26 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { SESSION_COOKIE, authDisabled, verifySession } from '../../lib/brain/auth';
+
+const next = Astro.url.searchParams.get('next') ?? '/brain';
+const failed = Astro.url.searchParams.has('error');
+
+// Nothing to log into if the brain is open, or if this session is already valid.
+if (authDisabled() || (await verifySession(Astro.cookies.get(SESSION_COOKIE)?.value))) {
+    return Astro.redirect(next.startsWith('/') && !next.startsWith('//') ? next : '/brain', 302);
+}
+---
+
+<Layout title="دخول · Second Brain" lang="ar" dir="rtl">
+    <div class="max-w-md py-16 mx-auto">
+        <h1 class="mb-8">الدماغ التاني</h1>
+        <form method="POST" action="/api/auth/login" class="space-y-4">
+            <input type="hidden" name="next" value={next} />
+            <input class="field" type="password" name="password" placeholder="كلمة السر" required autofocus autocomplete="current-password" />
+            {failed && <p class="text-primary">كلمة السر غلط.</p>}
+            <button class="btn w-full" type="submit">دخول</button>
+        </form>
+    </div>
+</Layout>

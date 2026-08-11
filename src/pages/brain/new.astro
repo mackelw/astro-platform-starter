@@ -1,0 +1,15 @@
+---
+export const prerender = false;
+
+import BrainShell from './_components/BrainShell.astro';
+import NoteEditor from './_components/NoteEditor.tsx';
+
+// A [[wiki-link]] pointing at a note that doesn't exist yet lands here with its
+// title pre-filled, so following a dangling link is how you start writing it.
+const initialTitle = Astro.url.searchParams.get('title') ?? undefined;
+---
+
+<BrainShell title="ملاحظة جديدة" active="new">
+    <h1 class="mb-8">ملاحظة جديدة</h1>
+    <NoteEditor client:load initialTitle={initialTitle} />
+</BrainShell>

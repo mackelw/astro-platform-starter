@@ -4,6 +4,40 @@
 
 A modern starter based on Astro.js, Tailwind, and [Netlify Core Primitives](https://docs.netlify.com/core/overview/#develop) (Edge Functions, Image CDN, Blob Store).
 
+## Second Brain (`/brain`)
+
+A personal knowledge base built on the Blob Store, with an Arabic (RTL) interface.
+
+- **Notes** — write Markdown, tag it, and search across titles, tags, and note bodies.
+- **Links between notes** — `[[note title]]` links two notes together, and each note lists
+  the notes pointing back at it. A link to a note you haven't written yet stays clickable and
+  opens the new-note form with the title filled in.
+- **Inbox** — paste a link (or use the bookmarklet on `/brain/inbox`) to save it with the
+  page's title and description, tagged `inbox`, to read later.
+
+### Setting a password
+
+Without a password the brain is readable and writable by anyone with the URL, and the UI
+shows a warning saying so. To lock it down, set an environment variable — locally in `.env`,
+and on Netlify under **Site configuration → Environment variables**:
+
+```
+SECOND_BRAIN_PASSWORD=your-password-here
+```
+
+`/brain/*`, `/api/notes*`, and `/api/capture` then require a login (a signed, HttpOnly session
+cookie that lasts 30 days). Changing the password invalidates existing sessions.
+
+### Where the data lives
+
+Notes are stored in the `second-brain` blob store: each note under `notes/<id>`, plus an
+`index` blob holding the summaries that drive listing, search, and backlinks. The index is
+derived data — if a write is ever interrupted, `POST /api/notes/reindex` rebuilds it from
+the notes themselves.
+
+Note that Netlify Blobs need `netlify dev` rather than `npm run dev` (see
+[Developing Locally](#developing-locally) below).
+
 ## Astro Commands
 
 All commands are run from the root of the project, from a terminal:

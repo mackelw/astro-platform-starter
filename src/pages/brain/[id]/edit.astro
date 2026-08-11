@@ -1,0 +1,15 @@
+---
+export const prerender = false;
+
+import BrainShell from '../_components/BrainShell.astro';
+import NoteEditor from '../_components/NoteEditor.tsx';
+import { getNote } from '../../../lib/brain/store';
+
+const note = await getNote(Astro.params.id!);
+if (!note) return Astro.redirect('/brain', 302);
+---
+
+<BrainShell title={`تعديل ${note.title}`} active="notes">
+    <h1 class="mb-8">تعديل الملاحظة</h1>
+    <NoteEditor client:load note={note} />
+</BrainShell>

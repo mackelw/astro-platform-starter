@@ -2,6 +2,7 @@
 
 @theme {
     --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-arabic: 'Cairo Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
     --color-primary: #f67280;
     --color-primary-content: #101828;
     --color-complementary: #355c7d;
@@ -42,6 +43,14 @@
             @apply my-6;
         }
 
+        /* Code is always left-to-right, even inside an Arabic note — without this
+           the bidi algorithm moves trailing punctuation to the wrong side. */
+        :where(pre, code) {
+            direction: ltr;
+            text-align: left;
+            unicode-bidi: isolate;
+        }
+
         :where(h1, h2) {
             @apply mt-12 mb-6;
         }
@@ -74,5 +83,57 @@
         --btn-font-size: 1.125rem;
         --btn-px: 1.5rem;
         --btn-py: 1.125rem;
+    }
+
+    .btn-ghost {
+        @apply bg-white/10 text-white;
+
+        &:hover {
+            @apply bg-white/20;
+        }
+    }
+
+    /* Links between notes. Missing targets stay clickable — they lead to the
+       "new note" form — but are dimmed and dashed so unwritten notes stand out. */
+    .wikilink {
+        @apply px-1 rounded no-underline bg-primary/15 text-primary;
+
+        &:hover {
+            @apply bg-primary/25;
+        }
+    }
+
+    .wikilink-missing {
+        @apply text-white/50 bg-white/5;
+        text-decoration: underline dashed;
+        text-underline-offset: 3px;
+    }
+
+    .card {
+        @apply block p-5 no-underline transition border rounded-lg border-white/10 bg-white/5;
+
+        &:hover {
+            @apply border-white/25 bg-white/10;
+        }
+    }
+
+    .field {
+        @apply w-full px-4 py-3 border rounded-lg border-white/15 bg-white/5 text-white placeholder:text-white/40;
+
+        &:focus {
+            @apply outline-none border-primary/70;
+        }
+    }
+
+    .chip {
+        @apply inline-flex items-center gap-1 px-3 py-1 text-sm no-underline transition rounded-full cursor-pointer bg-white/10;
+
+        &:hover {
+            @apply bg-white/20;
+        }
+
+        &[aria-pressed='true'] {
+            @apply bg-primary text-primary-content;
+        }
     }
 }

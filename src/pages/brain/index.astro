@@ -1,0 +1,16 @@
+---
+export const prerender = false;
+
+import BrainShell from './_components/BrainShell.astro';
+import NotesBrowser from './_components/NotesBrowser.tsx';
+import { getIndex, searchNotes } from '../../lib/brain/store';
+import { allTags } from '../../lib/brain/notes';
+
+const tag = Astro.url.searchParams.get('tag') ?? undefined;
+const [notes, index] = await Promise.all([searchNotes({ tag }), getIndex()]);
+---
+
+<BrainShell title="الملاحظات" active="notes">
+    <h1 class="mb-8">الدماغ التاني</h1>
+    <NotesBrowser client:load initialNotes={notes} initialTags={allTags(index)} initialTag={tag} />
+</BrainShell>

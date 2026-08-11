@@ -1,0 +1,72 @@
+---
+export const prerender = false;
+
+import BrainShell from './_components/BrainShell.astro';
+import Markdown from '../../components/Markdown.astro';
+import { getIndex, getNote } from '../../lib/brain/store';
+import { backlinksFor, resolveLink } from '../../lib/brain/notes';
+import { formatDate } from '../../lib/brain/format';
+
+const id = Astro.params.id!;
+const [note, index] = await Promise.all([getNote(id), getIndex()]);
+
+if (!note) {
+    Astro.response.status = 404;
+}
+
+const backlinks = note ? backlinksFor(note, index) : [];
+
+const resolveWikiLink = (target: string) => {
+    const found = resolveLink(target, index);
+    return found ? { href: `/brain/${encodeURIComponent(found.id)}`, exists: true } : null;
+};
+---
+
+<BrainShell title={note?.title ?? 'غير موجودة'} active="notes">
+    {
+        !note ? (
+            <div class="py-16 text-center">
+                <h1 class="mb-4">الملاحظة دي مش موجودة</h1>
+                <a href="/brain" class="btn mt-4">
+                    رجوع للملاحظات
+                </a>
+            </div>
+        ) : (
+            <article>
+                <header class="mb-8">
+                    <h1 class="mb-3">{note.title}</h1>
+                    <div class="flex flex-wrap items-center gap-4 text-sm opacity-60">
+                        <span>آخر تعديل {formatDate(note.updatedAt)}</span>
+                        {note.tags.map((tag) => (
+                            <a href={`/brain?tag=${encodeURIComponent(tag)}`}>#{tag}</a>
+                        ))}
+                        <a href={`/brain/${encodeURIComponent(note.id)}/edit`}>تعديل</a>
+                    </div>
+                    {note.url && (
+                        <p class="mt-3 text-sm">
+                            <a href={note.url} rel="noreferrer noopener" target="_blank">
+                                {note.url}
+                            </a>
+                        </p>
+                    )}
+                </header>
+
+                <Markdown content={note.body} resolveWikiLink={resolveWikiLink} />
+
+                {backlinks.length > 0 && (
+                    <section class="pt-8 mt-16 border-t border-white/10">
+                        <h2 class="mb-4 text-xl sm:text-xl">ملاحظات بتشاور على دي ({backlinks.length})</h2>
+                        <div class="space-y-3">
+                            {backlinks.map((link) => (
+                                <a href={`/brain/${encodeURIComponent(link.id)}`} class="card">
+                                    <span class="font-semibold">{link.title}</span>
+                                    {link.excerpt && <p class="mt-1 text-sm opacity-70">{link.excerpt}</p>}
+                                </a>
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </article>
+        )
+    }
+</BrainShell>

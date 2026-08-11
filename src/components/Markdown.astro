@@ -1,28 +1,15 @@
 ---
-import { Marked } from 'marked';
-import markedShiki from 'marked-shiki';
-import { highlighterPromise } from '../utils/highlighter';
+import { renderMarkdown, type WikiLinkResolver } from '../utils/markdown';
 
 interface Props {
     content: string;
     class?: string;
+    resolveWikiLink?: WikiLinkResolver;
 }
 
-const { content, class: className } = Astro.props;
+const { content, class: className, resolveWikiLink } = Astro.props;
 
-const highlighter = await highlighterPromise;
-const html = await new Marked()
-    .use(
-        markedShiki({
-            highlight(code, lang, props) {
-                return highlighter.codeToHtml(code, {
-                    lang,
-                    theme: 'min-dark'
-                });
-            }
-        })
-    )
-    .parse(content);
+const html = await renderMarkdown(content, { resolveWikiLink });
 ---
 
 <div class:list={['markdown', className]} set:html={html} />

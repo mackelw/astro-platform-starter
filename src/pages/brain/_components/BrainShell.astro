@@ -1,0 +1,55 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import Alert from '../../../components/Alert.astro';
+import { authDisabled } from '../../../lib/brain/auth';
+
+interface Props {
+    title: string;
+    active?: 'notes' | 'inbox' | 'new';
+}
+
+const { title, active } = Astro.props;
+
+const links = [
+    { label: 'الملاحظات', href: '/brain', key: 'notes' },
+    { label: 'الوارد', href: '/brain/inbox', key: 'inbox' },
+    { label: 'جديدة', href: '/brain/new', key: 'new' }
+];
+---
+
+<Layout title={`${title} · Second Brain`} lang="ar" dir="rtl">
+    {
+        authDisabled() && (
+            <Alert class="mb-8">
+                <span>
+                    الـ brain ده مفتوح للكل دلوقتي. ظبّط متغيّر البيئة <code>SECOND_BRAIN_PASSWORD</code> عشان تحميه بكلمة سر.
+                </span>
+            </Alert>
+        )
+    }
+
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <ul class="flex flex-wrap gap-2">
+            {
+                links.map((link) => (
+                    <li>
+                        <a href={link.href} class="chip no-underline" aria-pressed={active === link.key}>
+                            {link.label}
+                        </a>
+                    </li>
+                ))
+            }
+        </ul>
+        {
+            !authDisabled() && (
+                <form method="POST" action="/api/auth/logout">
+                    <button type="submit" class="text-sm underline opacity-60 hover:opacity-100">
+                        خروج
+                    </button>
+                </form>
+            )
+        }
+    </div>
+
+    <slot />
+</Layout>

@@ -1,0 +1,45 @@
+---
+export const prerender = false;
+
+import BrainShell from './_components/BrainShell.astro';
+import CaptureForm from './_components/CaptureForm.tsx';
+import { searchNotes } from '../../lib/brain/store';
+import { INBOX_TAG } from '../../lib/brain/notes';
+import { formatDate } from '../../lib/brain/format';
+
+const initialUrl = Astro.url.searchParams.get('url') ?? undefined;
+const notes = await searchNotes({ tag: INBOX_TAG });
+
+// Same-origin navigation rather than a cross-origin fetch, so the session cookie
+// travels with it and no CORS setup is needed.
+const bookmarklet = `javascript:window.open('${Astro.url.origin}/brain/inbox?url='+encodeURIComponent(location.href))`;
+---
+
+<BrainShell title="الوارد" active="inbox">
+    <h1 class="mb-4">الوارد</h1>
+    <p class="mb-8 opacity-70">الْقُط لينك دلوقتي واقراه بعدين. شيل تاج <code>{INBOX_TAG}</code> من الملاحظة لما تخلّص معاها.</p>
+
+    <CaptureForm client:load initialUrl={initialUrl} />
+
+    <p class="mt-6 text-sm opacity-60">
+        اسحب اللينك ده لشريط المفضلة عشان تلقط أي صفحة بضغطة: <a href={bookmarklet} class="btn btn-ghost ms-2" style="--btn-py: 0.35rem; --btn-px: 0.75rem;">لقط للدماغ</a>
+    </p>
+
+    <section class="pt-8 mt-12 border-t border-white/10">
+        <h2 class="mb-4 text-xl sm:text-xl">مستنية القراءة ({notes.length})</h2>
+        <div class="space-y-3">
+            {
+                notes.map((note) => (
+                    <a href={`/brain/${encodeURIComponent(note.id)}`} class="card">
+                        <div class="flex flex-wrap items-baseline justify-between gap-2">
+                            <span class="font-semibold">{note.title}</span>
+                            <span class="text-sm opacity-50">{formatDate(note.createdAt)}</span>
+                        </div>
+                        {note.excerpt && <p class="mt-2 text-sm opacity-70">{note.excerpt}</p>}
+                    </a>
+                ))
+            }
+            {notes.length === 0 && <p class="py-12 text-center opacity-60">الوارد فاضي.</p>}
+        </div>
+    </section>
+</BrainShell>
