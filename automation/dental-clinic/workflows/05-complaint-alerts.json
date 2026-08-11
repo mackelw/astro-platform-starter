@@ -1,0 +1,135 @@
+{
+    "name": "Dental Clinic — 05 Complaint Alerts",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "clinic/complaint-created",
+                "options": {}
+            },
+            "id": "wh-complaint",
+            "name": "Complaint Created",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [-560, 0],
+            "webhookId": "b1f4c0de-0005-4a00-9000-complaintnew"
+        },
+        {
+            "parameters": {
+                "jsCode": "const payload = $input.first().json.body ?? $input.first().json;\nconst record = payload.record ?? payload;\nif (!record.id) {\n  throw new Error('Webhook payload carries no complaint id');\n}\nreturn [{ json: { complaint_id: record.id } }];\n"
+            },
+            "id": "code-complaint-id",
+            "name": "Read Complaint Id",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [-340, 0]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/complaints?select=*,patients(full_name,phone,email)&id=eq.{{ $json.complaint_id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "http-load-complaint",
+            "name": "Load Complaint",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [-120, 0],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sendTo": "clinic-manager@your-clinic.com",
+                "subject": "=[{{ $json.severity.toUpperCase() }}] شكوى جديدة — {{ $json.subject }}",
+                "emailType": "text",
+                "message": "=وصلت شكوى جديدة من خلال {{ $json.channel }}.\n\nالمريض: {{ $json.patients?.full_name || 'غير مسجّل' }}\nتليفون: {{ $json.patients?.phone || '—' }}\nالدرجة: {{ $json.severity }}\nوقت التسجيل: {{ DateTime.fromISO($json.created_at).setZone('Africa/Cairo').toFormat('yyyy-MM-dd HH:mm') }}\n\nالموضوع: {{ $json.subject }}\n\nالنص:\n{{ $json.body }}\n\nرقم الشكوى: {{ $json.id }}",
+                "options": {}
+            },
+            "id": "gmail-complaint",
+            "name": "Notify Clinic",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [120, 0],
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "REPLACE_GMAIL_CRED_ID",
+                    "name": "Gmail — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "## 05 — تنبيه الإدارة بالشكاوى\nأي صف جديد في جدول `complaints` — سواء الـ agent سجّله من الشات أو جه من تصنيف رد متابعة — بيتحوّل لإيميل للإدارة في نفس اللحظة.\n\n**الإعداد:** Supabase → Database → Webhooks → webhook على جدول `complaints` لحدث INSERT، موجّه لعقدة Complaint Created.",
+                "height": 240,
+                "width": 800,
+                "color": 3
+            },
+            "id": "note-5",
+            "name": "Note note-5",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [-580, -300]
+        }
+    ],
+    "connections": {
+        "Complaint Created": {
+            "main": [
+                [
+                    {
+                        "node": "Read Complaint Id",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Read Complaint Id": {
+            "main": [
+                [
+                    {
+                        "node": "Load Complaint",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Load Complaint": {
+            "main": [
+                [
+                    {
+                        "node": "Notify Clinic",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "Africa/Cairo"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "dental-clinic"
+        }
+    ]
+}

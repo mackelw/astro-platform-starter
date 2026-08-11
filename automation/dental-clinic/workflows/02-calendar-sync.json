@@ -1,0 +1,502 @@
+{
+    "name": "Dental Clinic — 02 Calendar Sync",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "clinic/appointment-changed",
+                "options": {}
+            },
+            "id": "wh-appt-changed",
+            "name": "Appointment Changed",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [-560, 40],
+            "webhookId": "b1f4c0de-0002-4a00-9000-apptchanged"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Supabase database webhooks post { type, table, record, old_record }.\n// Translate the row change into one calendar action.\n\nconst payload = $input.first().json.body ?? $input.first().json;\nconst record = payload.record ?? payload;\nconst previous = payload.old_record ?? {};\n\nconst status = record.status;\nconst eventId = record.google_event_id;\n\nlet action = 'none';\n\nif (status === 'booked' && !eventId) {\n  action = 'create';\n} else if (status === 'booked' && eventId) {\n  const moved =\n    previous.starts_at !== record.starts_at || previous.ends_at !== record.ends_at;\n  action = moved ? 'update' : 'none';\n} else if (status === 'cancelled' && eventId) {\n  action = 'delete';\n}\n\nreturn [\n  {\n    json: {\n      sync_action: action,\n      appointment_id: record.id,\n      google_event_id: eventId ?? null,\n    },\n  },\n];\n"
+            },
+            "id": "code-decide",
+            "name": "Decide Action",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [-340, 40]
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "cond-create",
+                                        "leftValue": "={{ $json.sync_action }}",
+                                        "rightValue": "create",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "create"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "cond-update",
+                                        "leftValue": "={{ $json.sync_action }}",
+                                        "rightValue": "update",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "update"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "cond-delete",
+                                        "leftValue": "={{ $json.sync_action }}",
+                                        "rightValue": "delete",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "delete"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "switch-action",
+            "name": "Route Action",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.2,
+            "position": [-120, 40]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/appointments?select=*,patients(full_name,phone,email),doctors(full_name_ar,calendar_id),services(name_ar,duration_minutes)&id=eq.{{ $json.appointment_id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "http-load-appt",
+            "name": "Load Appointment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [120, -160],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Flatten the embedded PostgREST response into the fields the\n// Google Calendar node needs.\n\nreturn $input.all().map((item) => {\n  const a = item.json;\n  const patient = a.patients ?? {};\n  const doctor = a.doctors ?? {};\n  const service = a.services ?? {};\n\n  return {\n    json: {\n      appointment_id: a.id,\n      google_event_id: a.google_event_id,\n      calendar_id: doctor.calendar_id,\n      starts_at: a.starts_at,\n      ends_at: a.ends_at,\n      summary: `${service.name_ar} — ${patient.full_name ?? 'مريض'}`,\n      description: [\n        `الخدمة: ${service.name_ar ?? ''}`,\n        `الدكتور: ${doctor.full_name_ar ?? ''}`,\n        `المريض: ${patient.full_name ?? ''}`,\n        `تليفون: ${patient.phone ?? ''}`,\n        a.notes ? `ملاحظات: ${a.notes}` : null,\n        `Appointment ID: ${a.id}`,\n      ]\n        .filter(Boolean)\n        .join('\\n'),\n    },\n  };\n});\n"
+            },
+            "id": "code-build-event",
+            "name": "Build Event",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [340, -160]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "loose",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-event-id",
+                            "leftValue": "={{ $json.google_event_id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "if-has-event",
+            "name": "Already On Calendar?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [560, -160]
+        },
+        {
+            "parameters": {
+                "calendar": {
+                    "__rl": true,
+                    "value": "={{ $json.calendar_id }}",
+                    "mode": "id"
+                },
+                "start": "={{ $json.starts_at }}",
+                "end": "={{ $json.ends_at }}",
+                "additionalFields": {
+                    "summary": "={{ $json.summary }}",
+                    "description": "={{ $json.description }}"
+                }
+            },
+            "id": "gcal-create",
+            "name": "Create Calendar Event",
+            "type": "n8n-nodes-base.googleCalendar",
+            "typeVersion": 1.3,
+            "position": [800, -280],
+            "credentials": {
+                "googleCalendarOAuth2Api": {
+                    "id": "REPLACE_GOOGLE_CAL_CRED_ID",
+                    "name": "Google Calendar — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/appointments?id=eq.{{ $('Build Event').item.json.appointment_id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"google_event_id\": \"{{ $json.id }}\"\n}"
+            },
+            "id": "http-save-event-id",
+            "name": "Save Event Id",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [1020, -280],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "calendar": {
+                    "__rl": true,
+                    "value": "={{ $json.calendar_id }}",
+                    "mode": "id"
+                },
+                "eventId": "={{ $json.google_event_id }}",
+                "updateFields": {
+                    "start": "={{ $json.starts_at }}",
+                    "end": "={{ $json.ends_at }}",
+                    "summary": "={{ $json.summary }}",
+                    "description": "={{ $json.description }}"
+                }
+            },
+            "id": "gcal-update",
+            "name": "Update Calendar Event",
+            "type": "n8n-nodes-base.googleCalendar",
+            "typeVersion": 1.3,
+            "position": [800, -60],
+            "credentials": {
+                "googleCalendarOAuth2Api": {
+                    "id": "REPLACE_GOOGLE_CAL_CRED_ID",
+                    "name": "Google Calendar — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/appointments?select=*,doctors(calendar_id)&id=eq.{{ $json.appointment_id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "http-load-appt-del",
+            "name": "Load Appointment For Delete",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [120, 240],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "delete",
+                "calendar": {
+                    "__rl": true,
+                    "value": "={{ $json.doctors.calendar_id }}",
+                    "mode": "id"
+                },
+                "eventId": "={{ $json.google_event_id }}",
+                "options": {}
+            },
+            "id": "gcal-delete",
+            "name": "Delete Calendar Event",
+            "type": "n8n-nodes-base.googleCalendar",
+            "typeVersion": 1.3,
+            "position": [340, 240],
+            "credentials": {
+                "googleCalendarOAuth2Api": {
+                    "id": "REPLACE_GOOGLE_CAL_CRED_ID",
+                    "name": "Google Calendar — clinic"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/appointments?id=eq.{{ $('Load Appointment For Delete').item.json.id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"google_event_id\": null\n}"
+            },
+            "id": "http-clear-event-id",
+            "name": "Clear Event Id",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [560, 240],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "## 02 — Calendar Sync\nSupabase هي مصدر الحقيقة للمواعيد، وGoogle Calendar مرآة ليها.\n\nالـ AI agent بيكتب في الداتابيز بس. الـ workflow ده هو اللي بيحوّل التغيير لحدث على تقويم الدكتور، فمفيش حالة إن الحجز ينجح في مكان ويفشل في التاني.\n\n**الإعداد:** Supabase → Database → Webhooks → أنشئ webhook على جدول `appointments` لأحداث INSERT + UPDATE، ووجّهه لـ Production URL بتاع عقدة Appointment Changed.",
+                "height": 300,
+                "width": 820,
+                "color": 6
+            },
+            "id": "note-2",
+            "name": "Note note-2",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [-580, -420]
+        }
+    ],
+    "connections": {
+        "Appointment Changed": {
+            "main": [
+                [
+                    {
+                        "node": "Decide Action",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Decide Action": {
+            "main": [
+                [
+                    {
+                        "node": "Route Action",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Action": {
+            "main": [
+                [
+                    {
+                        "node": "Load Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Load Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Load Appointment For Delete",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Load Appointment": {
+            "main": [
+                [
+                    {
+                        "node": "Build Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Event": {
+            "main": [
+                [
+                    {
+                        "node": "Already On Calendar?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Already On Calendar?": {
+            "main": [
+                [
+                    {
+                        "node": "Update Calendar Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Create Calendar Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Calendar Event": {
+            "main": [
+                [
+                    {
+                        "node": "Save Event Id",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Load Appointment For Delete": {
+            "main": [
+                [
+                    {
+                        "node": "Delete Calendar Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Delete Calendar Event": {
+            "main": [
+                [
+                    {
+                        "node": "Clear Event Id",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "Africa/Cairo"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "dental-clinic"
+        }
+    ]
+}

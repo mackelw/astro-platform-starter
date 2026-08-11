@@ -1,0 +1,587 @@
+{
+    "name": "Dental Clinic — 01 AI Receptionist",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "clinic/inbound",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "wh-inbound",
+            "name": "Inbound Message",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [-360, 0],
+            "webhookId": "b1f4c0de-0001-4a00-9000-clinicinbound"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Accepts either a Meta WhatsApp Cloud API webhook payload or a simple\n// { phone, message, name } JSON body, and produces one normalised item.\n\nconst COUNTRY_CODE = '20'; // Egypt — change for your clinic.\n\nconst raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nfunction normalizePhone(value) {\n  let d = String(value ?? '').replace(/\\D/g, '');\n  if (!d) return null;\n  if (d.startsWith('00')) d = d.slice(2);\n  if (d.startsWith('0')) d = COUNTRY_CODE + d.slice(1);\n  return d;\n}\n\nconst waValue = body?.entry?.[0]?.changes?.[0]?.value;\nconst waMessage = waValue?.messages?.[0];\n\nlet phone, text, name;\n\nif (waMessage) {\n  phone = normalizePhone(waMessage.from);\n  text =\n    waMessage.text?.body ??\n    waMessage.button?.text ??\n    waMessage.interactive?.list_reply?.title ??\n    waMessage.interactive?.button_reply?.title ??\n    '';\n  name = waValue?.contacts?.[0]?.profile?.name ?? null;\n} else {\n  phone = normalizePhone(body.phone ?? body.from ?? body.sender);\n  text = body.message ?? body.text ?? body.body ?? '';\n  name = body.name ?? body.full_name ?? null;\n}\n\nif (!phone) {\n  throw new Error('Inbound payload carries no phone number');\n}\n\ntext = String(text).trim();\nif (!text) {\n  throw new Error('Inbound payload carries no message text');\n}\n\nreturn [{ json: { phone, name, text, receivedAt: new Date().toISOString() } }];\n"
+            },
+            "id": "code-normalize",
+            "name": "Normalize Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [-140, 0]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.text }}",
+                "options": {
+                    "systemMessage": "=أنت موظف الاستقبال الذكي في عيادة النخبة لطب الأسنان. بتتكلم مع المرضى على الشات وبتدير رحلتهم من أول رسالة لحد ما يتحجز الموعد.\n\n## اللغة والأسلوب\n- اتكلم عربي مصري بسيط ومهذب. لو المريض كتب إنجليزي أو Franco، رد بنفس لغته.\n- ردود قصيرة — سطرين لتلاتة. متكتبش فقرات طويلة على الشات.\n- اسأل سؤال واحد في الرسالة الواحدة، مش قايمة أسئلة.\n- استخدم الإيموچي بحساب (واحد على الأكثر في الرسالة).\n\n## مهامك\n1. ترحّب بالمريض وتفهم هو محتاج إيه.\n2. تساعده يختار الخدمة والدكتور.\n3. تعرض عليه المواعيد المتاحة الحقيقية.\n4. تحجز الموعد وتأكده.\n5. تعدّل أو تلغي مواعيد قديمة.\n6. تستقبل الشكاوى والملاحظات وتسجّلها.\n7. ترد على أسئلة عامة عن العيادة (المواعيد، الخدمات، الأسعار الموجودة عندك).\n\n## قواعد الحجز — صارمة، متكسرهاش\n- متقولش أبدًا معاد فاضي من دماغك. أي معاد بتعرضه لازم يكون راجع من أداة available_slots.\n- قبل أي حجز لازم يكون معاك: اسم المريض، الخدمة، الدكتور، والمعاد المحدد.\n- استخدم list_doctors_services عشان تعرف الأطباء والخدمات والمدد والأسعار. متخترعش خدمة أو سعر مش موجود.\n- لما تعرض مواعيد، اعرض 3 اختيارات على الأكثر بصيغة يوم + ساعة بالعربي.\n- أكّد قبل الحجز: اكتب ملخص (الدكتور، الخدمة، اليوم، الساعة) واستنى المريض يقول تمام قبل ما تستدعي book_appointment.\n- بعد نجاح الحجز، بلّغ المريض بالتأكيد واذكر رقم الموعد.\n- لو book_appointment رجّع slot_taken: اعتذر في سطر واحد واعرض البدائل اللي رجعت في alternatives على طول. متعيدش نفس المحاولة.\n- لو رجّع outside_working_hours: وضّح مواعيد عمل الدكتور واسأل عن وقت تاني.\n- لو رجّع doctor_does_not_offer_service: اقترح دكتور تاني بيقدّم الخدمة دي.\n- التاريخ والوقت اللي بتبعتهم للأدوات لازم يكونوا ISO 8601 بتوقيت القاهرة، مثال: 2026-08-18T16:30:00+03:00\n\n## التعديل والإلغاء\n- استخدم patient_history عشان تجيب مواعيد المريض و appointment_id بتاعها.\n- لو عنده أكتر من موعد قادم، اسأله يقصد أنهي واحد قبل ما تعدّل أو تلغي.\n- التعديل بـ reschedule_appointment، والإلغاء بـ cancel_appointment، وكل واحد بياخد appointment_id.\n- متلغيش موعد من غير ما المريض يطلب الإلغاء صراحة.\n\n## الشكاوى والملاحظات\n- أي شكوى أو انتقاد أو مشكلة — حتى لو المريض قالها بالسرعة — سجّلها بـ log_complaint.\n- اسمع الأول، اعتذر باختصار من غير مبالغة، وبعدين سجّل الشكوى وطمّن المريض إن الإدارة هتتواصل معاه.\n- استخدم severity = urgent لو فيها ألم شديد أو خطر على صحة المريض، high لو فيها خطأ طبي أو مبلغ مالي، غير كده normal.\n\n## حدود لا تتخطاها\n- متديش أي تشخيص أو نصيحة طبية أو دوا. لو المريض بيسأل عن ألم أو أعراض، قوله إن الدكتور هو اللي يقدر يقيّم ده، واعرض عليه تحجزله كشف.\n- لو الحالة فيها ألم شديد أو نزيف أو تورم أو إصابة، اعرض أقرب موعد متاح ونبّه إنه يتصل بالعيادة فورًا على رقمها.\n- متأكّدش على أسعار أو عروض مش راجعة من الأدوات.\n- متطلبش من المريض بيانات بطاقة ائتمان أو أي بيانات دفع.\n- لو مش عارف حاجة، قول إنك هتحوّل السؤال للإدارة وسجّلها بـ log_complaint بالنوع المناسب.\n\n## تنسيق الرد\nرد بنص عادي مناسب للشات. من غير Markdown ومن غير جداول ومن غير عناوين.\n\n## سياق المحادثة دي\n- دلوقتي بتوقيت القاهرة: {{ $now.setZone('Africa/Cairo').toFormat('yyyy-MM-dd HH:mm') }} ({{ $now.setZone('Africa/Cairo').toFormat('cccc') }})\n- رقم تليفون المريض: {{ $('Normalize Message').first().json.phone }}\n- الاسم من الشات: {{ $('Normalize Message').first().json.name || 'غير معروف' }}",
+                    "maxIterations": 12
+                }
+            },
+            "id": "agent-reception",
+            "name": "AI Receptionist",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [100, 0],
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify({ phone: $('Normalize Message').first().json.phone, reply: $json.output || 'حصلت مشكلة تقنية بسيطة عندنا. ممكن تبعت رسالتك تاني أو تتصل بالعيادة؟' }) }}",
+                "options": {}
+            },
+            "id": "respond-reply",
+            "name": "Reply",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [520, 0]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "claude-sonnet-5",
+                    "mode": "list",
+                    "cachedResultName": "Claude Sonnet 5"
+                },
+                "options": {
+                    "temperature": 0.3,
+                    "maxTokensToSample": 1024
+                }
+            },
+            "id": "lm-claude",
+            "name": "Claude",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [-100, 260],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "REPLACE_ANTHROPIC_CRED_ID",
+                    "name": "Anthropic account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sessionIdType": "customKey",
+                "sessionKey": "={{ $('Normalize Message').first().json.phone }}",
+                "tableName": "n8n_chat_histories",
+                "contextWindowLength": 20
+            },
+            "id": "mem-postgres",
+            "name": "Chat Memory",
+            "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+            "typeVersion": 1.3,
+            "position": [40, 260],
+            "credentials": {
+                "postgres": {
+                    "id": "REPLACE_POSTGRES_CRED_ID",
+                    "name": "Supabase Postgres"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "List the clinic's active doctors with the services each of them offers, including Arabic names, duration in minutes, price, and working hours. Call this before suggesting a doctor or a service. Returns doctor_id and service_id values that the booking tools require.",
+                "method": "GET",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/v_doctor_services?select=*&order=doctor_name_ar",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "placeholderDefinitions": {
+                    "values": []
+                }
+            },
+            "id": "tool-catalog",
+            "name": "list_doctors_services",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [180, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Return the real free appointment slots for one doctor and one service over the next 7 days. This is the ONLY source of free times — never invent a slot. Each result has slot_start (ISO 8601), local_day and local_time in Cairo time.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/available_slots",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\n  \"p_doctor_id\": \"{doctor_id}\",\n  \"p_service_id\": \"{service_id}\",\n  \"p_from\": \"{from_date}\",\n  \"p_days\": 7\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "doctor_id",
+                            "description": "UUID of the doctor, from list_doctors_services",
+                            "type": "string"
+                        },
+                        {
+                            "name": "service_id",
+                            "description": "UUID of the service, from list_doctors_services",
+                            "type": "string"
+                        },
+                        {
+                            "name": "from_date",
+                            "description": "First day to search, YYYY-MM-DD in Cairo time. Use today's date when the patient did not name a day.",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-slots",
+            "name": "available_slots",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [320, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Book an appointment after the patient has explicitly confirmed the summary. The slot must come from available_slots. Returns ok:true with appointment_id, or ok:false with a reason — 'slot_taken' also carries an 'alternatives' list you should offer immediately instead of retrying.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/book_appointment",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').first().json.phone }}\",\n  \"p_doctor_id\": \"{doctor_id}\",\n  \"p_service_id\": \"{service_id}\",\n  \"p_starts_at\": \"{starts_at}\",\n  \"p_full_name\": \"{full_name}\",\n  \"p_notes\": \"{notes}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "doctor_id",
+                            "description": "UUID of the chosen doctor",
+                            "type": "string"
+                        },
+                        {
+                            "name": "service_id",
+                            "description": "UUID of the chosen service",
+                            "type": "string"
+                        },
+                        {
+                            "name": "starts_at",
+                            "description": "Slot start as ISO 8601 with Cairo offset, e.g. 2026-08-18T16:30:00+03:00. Copy slot_start from available_slots.",
+                            "type": "string"
+                        },
+                        {
+                            "name": "full_name",
+                            "description": "Patient full name as they gave it",
+                            "type": "string"
+                        },
+                        {
+                            "name": "notes",
+                            "description": "Short note about the case, or an empty string",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-book",
+            "name": "book_appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [460, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Move an existing booked appointment to a new time. Get appointment_id from patient_history first, and the new time from available_slots. Returns ok:false with reason 'slot_taken' plus alternatives when the new time is not free.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/reschedule_appointment",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').first().json.phone }}\",\n  \"p_appointment_id\": \"{appointment_id}\",\n  \"p_new_starts_at\": \"{new_starts_at}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "appointment_id",
+                            "description": "UUID of the appointment being moved",
+                            "type": "string"
+                        },
+                        {
+                            "name": "new_starts_at",
+                            "description": "New slot start as ISO 8601 with Cairo offset",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-reschedule",
+            "name": "reschedule_appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [600, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Cancel a booked appointment. Only call this when the patient explicitly asks to cancel. Get appointment_id from patient_history first.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/cancel_appointment",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').first().json.phone }}\",\n  \"p_appointment_id\": \"{appointment_id}\",\n  \"p_reason\": \"{reason}\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "appointment_id",
+                            "description": "UUID of the appointment to cancel",
+                            "type": "string"
+                        },
+                        {
+                            "name": "reason",
+                            "description": "Short reason the patient gave, or an empty string",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-cancel",
+            "name": "cancel_appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [740, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Look up this patient's record: stored name, their last 20 appointments with appointment_id, status, doctor and service, and how many complaints are still open. Call this before rescheduling, cancelling, or when the patient refers to a previous visit.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/patient_history",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').first().json.phone }}\"\n}",
+                "placeholderDefinitions": {
+                    "values": []
+                }
+            },
+            "id": "tool-history",
+            "name": "patient_history",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [880, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Record a complaint, criticism or request that the clinic staff must follow up on. Use severity 'urgent' for severe pain or a health risk, 'high' for a clinical or billing error, otherwise 'normal'.",
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/log_complaint",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "parametersHeaders": {
+                    "values": [
+                        {
+                            "name": "Content-Type",
+                            "valueProvider": "fieldValue",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').first().json.phone }}\",\n  \"p_subject\": \"{subject}\",\n  \"p_body\": \"{body}\",\n  \"p_severity\": \"{severity}\",\n  \"p_channel\": \"chat\"\n}",
+                "placeholderDefinitions": {
+                    "values": [
+                        {
+                            "name": "subject",
+                            "description": "One short line summarising the complaint, in Arabic",
+                            "type": "string"
+                        },
+                        {
+                            "name": "body",
+                            "description": "The complaint in the patient's own words",
+                            "type": "string"
+                        },
+                        {
+                            "name": "severity",
+                            "description": "One of: low, normal, high, urgent",
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "id": "tool-complaint",
+            "name": "log_complaint",
+            "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+            "typeVersion": 1.1,
+            "position": [1020, 260],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "## 01 — AI Receptionist\nنقطة الدخول لكل محادثات المرضى.\n\nالـ webhook بيقبل شكل رسالة WhatsApp Cloud API أو JSON بسيط:\n`{ \"phone\": \"01001234567\", \"message\": \"عايز أحجز كشف\" }`\n\n**مهم:** رقم التليفون بيتحقن في الأدوات من عقدة Normalize Message مش من الموديل، عشان المريض ميقدرش يقرا أو يعدّل سجل مريض تاني بإنه يدّي رقم غيره.",
+                "height": 240,
+                "width": 720,
+                "color": 6
+            },
+            "id": "note-1",
+            "name": "Note note-1",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [-380, -300]
+        }
+    ],
+    "connections": {
+        "Inbound Message": {
+            "main": [
+                [
+                    {
+                        "node": "Normalize Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Normalize Message": {
+            "main": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Receptionist": {
+            "main": [
+                [
+                    {
+                        "node": "Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Claude": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Chat Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "list_doctors_services": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "available_slots": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "book_appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "reschedule_appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "cancel_appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "patient_history": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "log_complaint": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Receptionist",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "Africa/Cairo"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "dental-clinic"
+        }
+    ]
+}

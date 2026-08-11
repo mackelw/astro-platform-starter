@@ -1,0 +1,295 @@
+{
+    "name": "Dental Clinic — 04 Feedback Intake",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "clinic/feedback-reply",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "wh-feedback",
+            "name": "Feedback Reply",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [-560, 0],
+            "webhookId": "b1f4c0de-0004-4a00-9000-feedbackreply"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Accepts either a Meta WhatsApp Cloud API webhook payload or a simple\n// { phone, message, name } JSON body, and produces one normalised item.\n\nconst COUNTRY_CODE = '20'; // Egypt — change for your clinic.\n\nconst raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nfunction normalizePhone(value) {\n  let d = String(value ?? '').replace(/\\D/g, '');\n  if (!d) return null;\n  if (d.startsWith('00')) d = d.slice(2);\n  if (d.startsWith('0')) d = COUNTRY_CODE + d.slice(1);\n  return d;\n}\n\nconst waValue = body?.entry?.[0]?.changes?.[0]?.value;\nconst waMessage = waValue?.messages?.[0];\n\nlet phone, text, name;\n\nif (waMessage) {\n  phone = normalizePhone(waMessage.from);\n  text =\n    waMessage.text?.body ??\n    waMessage.button?.text ??\n    waMessage.interactive?.list_reply?.title ??\n    waMessage.interactive?.button_reply?.title ??\n    '';\n  name = waValue?.contacts?.[0]?.profile?.name ?? null;\n} else {\n  phone = normalizePhone(body.phone ?? body.from ?? body.sender);\n  text = body.message ?? body.text ?? body.body ?? '';\n  name = body.name ?? body.full_name ?? null;\n}\n\nif (!phone) {\n  throw new Error('Inbound payload carries no phone number');\n}\n\ntext = String(text).trim();\nif (!text) {\n  throw new Error('Inbound payload carries no message text');\n}\n\nreturn [{ json: { phone, name, text, receivedAt: new Date().toISOString() } }];\n"
+            },
+            "id": "code-normalize-fb",
+            "name": "Normalize Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [-340, 0]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=صنّف رد المريض ده على رسالة متابعة من عيادة أسنان.\n\nرد المريض:\n\"\"\"\n{{ $json.text }}\n\"\"\"\n\nقواعد التصنيف:\n- لو المريض قال رقم من 1 لـ 5، استخدمه زي ما هو في rating.\n- لو مقالش رقم، استنتج تقييم من نبرة الرد.\n- is_complaint = true لو فيه مشكلة العيادة لازم تتصرف فيها (ألم مستمر، تأخير، سوء تعامل، مبلغ غلط، نتيجة مش مرضية).\n- الشكر أو المدح من غير أي مشكلة = is_complaint false.\n- topics بالعربي وقصيرة.",
+                "hasOutputParser": true,
+                "messages": {}
+            },
+            "id": "chain-classify",
+            "name": "Classify Reply",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.5,
+            "position": [-120, 0]
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "claude-sonnet-5",
+                    "mode": "list",
+                    "cachedResultName": "Claude Sonnet 5"
+                },
+                "options": {
+                    "temperature": 0,
+                    "maxTokensToSample": 600
+                }
+            },
+            "id": "lm-claude-4",
+            "name": "Claude",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [-180, 220],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "REPLACE_ANTHROPIC_CRED_ID",
+                    "name": "Anthropic account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "schemaType": "manual",
+                "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"rating\",\n    \"sentiment\",\n    \"summary\",\n    \"topics\",\n    \"is_complaint\"\n  ],\n  \"properties\": {\n    \"rating\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 5,\n      \"description\": \"1 to 5. Infer it from the tone when the patient did not give a number.\"\n    },\n    \"sentiment\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"positive\",\n        \"neutral\",\n        \"negative\"\n      ]\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"One short Arabic sentence summarising the reply.\"\n    },\n    \"topics\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Short Arabic tags, e.g. الانتظار، السعر، نظافة العيادة، تعامل الدكتور، الألم بعد الجلسة\"\n    },\n    \"is_complaint\": {\n      \"type\": \"boolean\",\n      \"description\": \"True when the patient reports a problem the clinic must act on.\"\n    }\n  }\n}"
+            },
+            "id": "parser-feedback",
+            "name": "Feedback Schema",
+            "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+            "typeVersion": 1.2,
+            "position": [0, 220]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/record_feedback",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {},
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Normalize Message').item.json.phone }}\",\n  \"p_rating\": {{ $json.output.rating }},\n  \"p_sentiment\": \"{{ $json.output.sentiment }}\",\n  \"p_summary\": {{ JSON.stringify($json.output.summary) }},\n  \"p_topics\": {{ JSON.stringify($json.output.topics) }},\n  \"p_raw_message\": {{ JSON.stringify($('Normalize Message').item.json.text) }},\n  \"p_is_complaint\": {{ $json.output.is_complaint }}\n}"
+            },
+            "id": "http-record-feedback",
+            "name": "Record Feedback",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [120, 0],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "REPLACE_SUPABASE_CRED_ID",
+                    "name": "Supabase — clinic"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "loose",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "is-complaint",
+                            "leftValue": "={{ $('Classify Reply').item.json.output.is_complaint }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "if-complaint",
+            "name": "Is Complaint?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [340, 0]
+        },
+        {
+            "parameters": {
+                "sendTo": "clinic-manager@your-clinic.com",
+                "subject": "=🔴 شكوى من متابعة ما بعد الزيارة — {{ $('Classify Reply').item.json.output.summary }}",
+                "emailType": "text",
+                "message": "=تقييم: {{ $('Classify Reply').item.json.output.rating }}/5\nالانطباع: {{ $('Classify Reply').item.json.output.sentiment }}\nالمحاور: {{ $('Classify Reply').item.json.output.topics.join('، ') }}\nتليفون المريض: {{ $('Normalize Message').item.json.phone }}\n\nنص الرد:\n{{ $('Normalize Message').item.json.text }}\n\nالشكوى اتسجّلت في Supabase تحت جدول complaints.",
+                "options": {}
+            },
+            "id": "gmail-feedback-alert",
+            "name": "Alert Clinic",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [580, -120],
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "REPLACE_GMAIL_CRED_ID",
+                    "name": "Gmail — clinic"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify({ phone: $('Normalize Message').first().json.phone, reply: $('Classify Reply').first().json.output.is_complaint ? 'شكرًا إنك قلتلنا. سجّلنا ملاحظتك والإدارة هتتواصل معاك قريب 🙏' : 'شكرًا لوقتك ورأيك، ده بيساعدنا نتحسّن 🌟' }) }}",
+                "options": {}
+            },
+            "id": "respond-thanks",
+            "name": "Thank Patient",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [820, 0]
+        },
+        {
+            "parameters": {
+                "content": "## 04 — استقبال الردود وتصنيفها\nالردود على رسايل المتابعة بتدخل هنا.\n\nالموديل بيطلع JSON منظّم: تقييم من 5، الانطباع، ملخص، محاور، وهل ده شكوى ولا لأ. النتيجة بتتخزن في جدول `feedback`، ولو شكوى الـ RPC بيفتح صف في `complaints` كمان وبيتبعت إيميل للإدارة على طول.\n\n**وجّه ردود المرضى على رسايل المتابعة لـ Production URL بتاع عقدة Feedback Reply.**",
+                "height": 280,
+                "width": 860,
+                "color": 7
+            },
+            "id": "note-4",
+            "name": "Note note-4",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [-580, -340]
+        }
+    ],
+    "connections": {
+        "Feedback Reply": {
+            "main": [
+                [
+                    {
+                        "node": "Normalize Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Normalize Message": {
+            "main": [
+                [
+                    {
+                        "node": "Classify Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Classify Reply": {
+            "main": [
+                [
+                    {
+                        "node": "Record Feedback",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Record Feedback": {
+            "main": [
+                [
+                    {
+                        "node": "Is Complaint?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Complaint?": {
+            "main": [
+                [
+                    {
+                        "node": "Alert Clinic",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Thank Patient",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Alert Clinic": {
+            "main": [
+                [
+                    {
+                        "node": "Thank Patient",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Claude": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Classify Reply",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Feedback Schema": {
+            "ai_outputParser": [
+                [
+                    {
+                        "node": "Classify Reply",
+                        "type": "ai_outputParser",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "Africa/Cairo"
+    },
+    "pinData": {},
+    "tags": [
+        {
+            "name": "dental-clinic"
+        }
+    ]
+}
