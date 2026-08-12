@@ -1,0 +1,60 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MotionStudio from '../components/motion/MotionStudio.tsx';
+---
+
+<Layout title="استوديو تحليل الحركة — DJI Osmo Pocket 3">
+    <div dir="rtl" class="mb-8">
+        <h1 class="mb-4">استوديو تحليل الحركة</h1>
+        <p class="max-w-3xl text-white/75">
+            أداة تحليل حركة كاملة تعمل داخل المتصفح لمقاطع كاميرا <strong>DJI Osmo Pocket 3</strong> — كشف الحركة، تتبّع
+            الأجسام، قياس السرعة والتسارع والمسافة، وقياس زوايا المفاصل إطاراً بإطار. تدعم الملفات المسجّلة والبث المباشر عبر
+            وضع الويب كام (USB).
+        </p>
+        <p class="mt-3 max-w-3xl text-sm text-white/55">
+            كل المعالجة تجري محلياً على جهازك؛ لا يُرفع أي فيديو إلى أي خادم.
+        </p>
+    </div>
+
+    <!--
+      client:only rather than client:load: the studio touches getUserMedia,
+      canvas and MediaRecorder from its first render, none of which exist while
+      the page is being rendered on the server.
+    -->
+    <MotionStudio client:only="react" />
+
+    <div dir="rtl" class="mt-12 max-w-3xl text-sm leading-relaxed text-white/70">
+        <h2 class="mb-4 text-white">كيف تعمل الأداة</h2>
+        <ol class="flex list-decimal flex-col gap-3 ps-5">
+            <li>
+                <strong class="text-white">اختر المصدر:</strong> ارفع ملف MP4/MOV من الكاميرا، أو وصّلها بـ USB واختر «وضع
+                الويب كام» من شاشتها ثم اضغط «بث مباشر». حدّد بعدها نمط التصوير — وهو ما يجعل مقاطع الحركة البطيئة (120 إطار/ث)
+                تُحسب بسرعاتها الحقيقية.
+            </li>
+            <li>
+                <strong class="text-white">عاير المشهد:</strong> بأداة «معايرة» ارسم خطاً فوق جسم معلوم الطول في نفس مستوى
+                الحركة وأدخل طوله. بدونها تبقى القياسات بوحدة البكسل.
+            </li>
+            <li>
+                <strong class="text-white">حلّل:</strong> شغّل الفيديو ليعمل الكشف التلقائي، أو ارسم مستطيلاً حول جسم بعينه
+                بأداة «تتبّع» ليتبعه المحرّك بمطابقة القالب حتى وهو ساكن.
+            </li>
+            <li>
+                <strong class="text-white">قِس الزوايا:</strong> أوقف الفيديو عند الإطار المطلوب (بأسهم لوحة المفاتيح للتنقّل
+                إطاراً إطاراً) واضغط ثلاث نقاط: الطرف، المفصل، الطرف الآخر.
+            </li>
+            <li>
+                <strong class="text-white">صدّر:</strong> ملفات CSV للسرعات والزوايا والمسارات، أو JSON للجلسة كاملة، أو لقطة
+                وفيديو يحتويان طبقة التحليل.
+            </li>
+        </ol>
+
+        <h2 class="mb-4 mt-10 text-white">حدود القياس</h2>
+        <ul class="flex list-disc flex-col gap-2 ps-5">
+            <li>القياس ثنائي الأبعاد: الحركة العمودية على مستوى الكاميرا تُقاس بدقة، أما الحركة نحو العدسة أو بعيداً عنها فتُقلَّل.</li>
+            <li>المعايرة صالحة في مستوى خط المرجع فقط؛ جسم أقرب للكاميرا سيبدو أسرع مما هو عليه.</li>
+            <li>عدسة Pocket 3 عريضة (٢٠ مم مكافئ)، لذا يزداد خطأ المنظور عند أطراف الإطار — أبقِ الحركة قرب المركز.</li>
+            <li>ضبابية الحركة عند سرعات الغالق المنخفضة تُوسّع حدود الجسم وتزيد تشتّت القياس؛ ارفع سرعة الغالق للحركات السريعة.</li>
+        </ul>
+    </div>
+</Layout>
