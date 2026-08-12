@@ -243,6 +243,13 @@ export function VideoStage(): React.ReactElement {
                         </p>
                     </div>
                 )}
+                {engine.lastResult?.unstable && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                        <p className="text-center text-xs font-semibold text-amber-200">
+                            الكاميرا تتحرك — أُوقف الكشف التلقائي مؤقتاً
+                        </p>
+                    </div>
+                )}
                 {tool !== 'none' && <ToolHint tool={tool} pending={pendingAngle.length} />}
             </div>
             <Transport />

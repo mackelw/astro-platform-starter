@@ -101,6 +101,15 @@ export interface DetectConfig {
     compensateCameraMotion: boolean;
     /** Maximum blobs kept per frame, largest first. */
     maxBlobs: number;
+    /**
+     * Refuse to detect on frames where compensation could not settle the scene.
+     * A frame in which most of the picture is moving carries no information
+     * about *which* object moved, and mining it produces hundreds of spurious
+     * tracks that bury the real ones.
+     */
+    stabilityGate: boolean;
+    /** Fraction of the frame that may move before a frame is rejected, percent. */
+    unstableAbovePct: number;
 }
 
 export interface TrackConfig {
@@ -143,6 +152,16 @@ export interface GlobalMotion {
     dy: number;
     /** Fraction of probe blocks that agreed with the median, 0..1. */
     confidence: number;
+    /**
+     * True when the winning displacement sits against the edge of the searched
+     * window, meaning the real displacement probably lies beyond it.
+     *
+     * Confidence cannot express this: it measures whether the probe blocks
+     * agreed, and blocks agree perfectly well on a wrong answer when they all
+     * saturate at the same boundary. A pan faster than the search range is
+     * exactly that case.
+     */
+    clipped: boolean;
 }
 
 /** Everything the pipeline produces for one analysed frame. */
@@ -157,6 +176,8 @@ export interface FrameResult {
     /** Fraction of the frame that is moving, 0..1. */
     motionRatio: number;
     camera: GlobalMotion;
+    /** True when the frame was rejected as too unsettled to detect on. */
+    unstable: boolean;
     /** Wall-clock milliseconds this frame took to analyse. */
     costMs: number;
 }

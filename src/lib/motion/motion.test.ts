@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DETECT_CONFIG, MotionDetector, processingSize } from './detect';
+import { DEFAULT_DETECT_CONFIG, MotionDetector, isFrameUnstable, processingSize } from './detect';
 import { BlobFinder } from './blobs';
 import { DEFAULT_TRACK_CONFIG, MultiTracker } from './tracker';
 import { TemplateTracker } from './template';
@@ -303,6 +303,48 @@ describe('multi-object tracker', () => {
     });
 });
 
+describe('frame stability gate', () => {
+    const cfg = { ...DEFAULT_DETECT_CONFIG, stabilityGate: true, unstableAbovePct: 32 };
+    const settled = { dx: -4, dy: 0, confidence: 0.9, clipped: false };
+
+    it('rejects a frame where most of the picture moved', () => {
+        expect(isFrameUnstable(0.5, settled, cfg)).toBe(true);
+    });
+
+    it('rejects a modest-area frame whose estimate was pinned to the search edge', () => {
+        // The case a threshold on area alone cannot see: a whip pan across
+        // scattered objects lights up little of the frame yet is pure camera
+        // motion. Saturating the search window is what betrays it.
+        expect(isFrameUnstable(0.12, { dx: -80, dy: 0, confidence: 0.95, clipped: true }, cfg)).toBe(true);
+    });
+
+    it('rejects a modest-area frame whose probes disagreed', () => {
+        expect(isFrameUnstable(0.12, { dx: -4, dy: 0, confidence: 0.2, clipped: false }, cfg)).toBe(true);
+    });
+
+    it('accepts a settled frame with a genuinely moving subject', () => {
+        // A person crossing a static shot: real motion, trustworthy estimate.
+        expect(isFrameUnstable(0.12, settled, cfg)).toBe(false);
+    });
+
+    it('accepts a settled frame with barely any motion', () => {
+        expect(isFrameUnstable(0.01, settled, cfg)).toBe(false);
+    });
+
+    it('judges on area alone when compensation is switched off', () => {
+        // With no compensation running there is no estimate to distrust, so the
+        // confidence signal must not be read as instability.
+        const off = { ...cfg, compensateCameraMotion: false };
+        expect(isFrameUnstable(0.12, { dx: 0, dy: 0, confidence: 0, clipped: false }, off)).toBe(false);
+        expect(isFrameUnstable(0.5, { dx: 0, dy: 0, confidence: 0, clipped: false }, off)).toBe(true);
+    });
+
+    it('never rejects anything when the gate is disabled', () => {
+        const disabled = { ...cfg, stabilityGate: false };
+        expect(isFrameUnstable(0.99, { dx: 0, dy: 0, confidence: 0, clipped: true }, disabled)).toBe(false);
+    });
+});
+
 describe('angles', () => {
     it('measures the interior angle at the vertex', () => {
         expect(angleAt({ x: 0, y: 10 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(90, 6);
@@ -343,4 +385,99 @@ describe('recording-mode identification', () => {
     it('declines to guess when the resolution is not a Pocket 3 mode', () => {
         expect(guessPreset(1280, 720, 30)).toBeNull();
     });
+});
+
+describe('a moving camera', () => {
+    /**
+     * A scene of scattered objects on a plain background, slid wholesale as a
+     * camera pan would slide it.
+     *
+     * Scattered rather than continuous on purpose. A smooth texture differences
+     * into one frame-filling region that the maximum-area filter discards, so it
+     * cannot reproduce the failure at all. A room full of separate objects
+     * differences into dozens of small regions — one per object edge — and those
+     * are what became dozens of spurious tracks.
+     */
+    const pannedFrame = (shift: number): ImageData => {
+        const data = new Uint8ClampedArray(W * H * 4);
+        // Faint wall texture: enough variance for the block matcher to lock
+        // onto, but shifting it stays under the detection threshold — the way a
+        // real wall behaves against a strongly-lit object.
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                const i = (y * W + x) * 4;
+                const sx = x - shift;
+                const v = 70 + (Math.sin(sx * 0.21) + Math.cos(y * 0.17)) * 4.5;
+                data[i] = data[i + 1] = data[i + 2] = v;
+                data[i + 3] = 255;
+            }
+        }
+
+        // Aperiodic object placement. A regular lattice makes the block
+        // matcher lock onto a shifted copy of itself whenever the displacement
+        // approaches a multiple of the spacing, which is an artefact of the
+        // test scene and not something a real room does.
+        let seed = 20260812;
+        const rand = () => {
+            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+            return seed / 0x7fffffff;
+        };
+        for (let n = 0; n < 60; n++) {
+            const size = 7 + Math.floor(rand() * 12);
+            const cx = Math.floor(rand() * (W - size)) - shift;
+            const cy = Math.floor(rand() * (H - size));
+            const bright = 170 + Math.floor(rand() * 80);
+            for (let y = cy; y < cy + size; y++) {
+                if (y < 0 || y >= H) continue;
+                for (let x = cx; x < cx + size; x++) {
+                    if (x < 0 || x >= W) continue;
+                    const i = (y * W + x) * 4;
+                    data[i] = data[i + 1] = data[i + 2] = bright;
+                }
+            }
+        }
+        return { data, width: W, height: H, colorSpace: 'srgb' } as ImageData;
+    };
+
+    const pan = (perFrame: number, cfg: Partial<typeof DEFAULT_DETECT_CONFIG> = {}) => {
+        const config = { ...DEFAULT_DETECT_CONFIG, processingWidth: W, minAreaPct: 0.05, ...cfg };
+        const { w, h } = processingSize(W, H, config.processingWidth);
+        const detector = new MotionDetector();
+        detector.resize(w, h);
+        const finder = new BlobFinder();
+        const tracker = new MultiTracker();
+        let ratio = 1;
+
+        for (let f = 0; f < 8; f++) {
+            const res = detector.process(pannedFrame(f * perFrame), config);
+            ratio = res.motionRatio;
+            const unstable = isFrameUnstable(res.motionRatio, res.camera, config);
+            if (f >= 2 && !unstable) {
+                tracker.update(finder.find(res.mask, detector.lastDiff, w, h, 1, config), f / 30, DEFAULT_TRACK_CONFIG);
+            }
+        }
+        // `visible` applies the minimum-hits filter; `created` counts every
+        // trajectory the detector started. A pan fast enough that objects never
+        // overlap between frames creates many tracks that each die before being
+        // shown, so counting only the visible ones would understate the mess.
+        return { ratio, tracks: tracker.visible(DEFAULT_TRACK_CONFIG).length, created: tracker.all().length };
+    };
+
+    it('cancels a fast pan that a narrow search would miss', () => {
+        // 30 px per frame is far beyond the search range the estimator used to
+        // use, so the estimate collapsed to zero and the whole frame read as
+        // motion. This is the everyday case: a hand-held or gimbal pan.
+        const fast = pan(30);
+        expect(fast.ratio).toBeLessThan(0.02);
+        expect(fast.created).toBeLessThanOrEqual(1);
+    });
+
+    it('still cancels a slow pan', () => {
+        expect(pan(4).ratio).toBeLessThan(0.02);
+    });
+
+    it('cancels a diagonal pan', () => {
+        expect(pan(18).ratio).toBeLessThan(0.02);
+    });
+
 });

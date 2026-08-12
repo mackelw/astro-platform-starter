@@ -59,6 +59,8 @@ export interface LiveStats {
     cameraDy: number;
     blobCount: number;
     activeTracks: number;
+    /** True when the last frame was rejected as too unsettled to detect on. */
+    unstable: boolean;
 }
 
 /** `requestVideoFrameCallback` is still unflagged-but-untyped in some TS libs. */
@@ -194,7 +196,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
         cameraDx: 0,
         cameraDy: 0,
         blobCount: 0,
-        activeTracks: 0
+        activeTracks: 0,
+        unstable: false
     });
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -495,7 +498,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }): Rea
                     cameraDx: result.camera.dx,
                     cameraDy: result.camera.dy,
                     blobCount: result.blobs.length,
-                    activeTracks: engine.tracker.all().filter((tr) => tr.active).length
+                    activeTracks: engine.tracker.all().filter((tr) => tr.active).length,
+                    unstable: result.unstable
                 });
                 bumpVersion();
             }

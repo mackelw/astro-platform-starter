@@ -329,6 +329,23 @@ export function DetectionPanel(): React.ReactElement {
             />
 
             <Toggle
+                label="تجاهل الإطارات غير المستقرة"
+                checked={cfg.stabilityGate}
+                onChange={(v) => setCfg({ stabilityGate: v })}
+                hint="يوقف الكشف التلقائي في الإطارات التي تحرّكت فيها الكاميرا كثيراً — بدونه يتولّد مسار وهمي لكل حافة في المشهد."
+            />
+            {cfg.stabilityGate && (
+                <Slider
+                    label="حد عدم الاستقرار"
+                    value={cfg.unstableAbovePct}
+                    min={5}
+                    max={80}
+                    unit="%"
+                    onChange={(v) => setCfg({ unstableAbovePct: v })}
+                    hint="نسبة الإطار المتحرّكة التي يُرفض عندها الإطار. اخفضها لو ما زالت المسارات الوهمية تظهر أثناء التحريك."
+                />
+            )}
+            <Toggle
                 label="تعويض حركة الكاميرا"
                 checked={cfg.compensateCameraMotion}
                 onChange={(v) => setCfg({ compensateCameraMotion: v })}
@@ -400,7 +417,11 @@ export function StatsPanel(): React.ReactElement {
                 <Stat label="نسبة الحركة" value={`${(stats.motionRatio * 100).toFixed(1)}%`} />
                 <Stat label="كتل مرصودة" value={String(stats.blobCount)} />
                 <Stat label="مسارات نشطة" value={String(stats.activeTracks)} />
-                <Stat label="إزاحة الكاميرا" value={`${stats.cameraDx.toFixed(0)}, ${stats.cameraDy.toFixed(0)}`} />
+                <Stat
+                    label="إزاحة الكاميرا"
+                    value={`${stats.cameraDx.toFixed(0)}, ${stats.cameraDy.toFixed(0)}`}
+                    tone={stats.unstable ? 'warn' : 'default'}
+                />
                 <Stat label="معدل المصدر" value={stats.sourceFps ? `${stats.sourceFps.toFixed(0)} fps` : '—'} />
                 <Stat label="معامل الزمن" value={`×${timeScale.toFixed(2)}`} tone={timeScale > 1 ? 'good' : 'default'} />
             </div>

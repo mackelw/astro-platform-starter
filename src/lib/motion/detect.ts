@@ -12,7 +12,9 @@ export const DEFAULT_DETECT_CONFIG: DetectConfig = {
     backgroundMode: 'adjacent',
     learningRate: 0.05,
     compensateCameraMotion: true,
-    maxBlobs: 24
+    maxBlobs: 24,
+    stabilityGate: true,
+    unstableAbovePct: 32
 };
 
 export interface DetectResult {
@@ -101,8 +103,8 @@ export class MotionDetector {
 
         const camera: GlobalMotion =
             cfg.compensateCameraMotion && this.hasPrev
-                ? this.motion.estimate(this.prev, cur, w, h, Math.max(6, Math.round(w / 40)))
-                : { dx: 0, dy: 0, confidence: 0 };
+                ? this.motion.estimate(this.prev, cur, w, h, Math.max(12, Math.round(w / 8)))
+                : { dx: 0, dy: 0, confidence: 0, clipped: false };
 
         const mask = this.mask;
         const diff = this.diff;
@@ -191,6 +193,29 @@ export class MotionDetector {
     get lastDiff(): Uint8Array {
         return this.diff;
     }
+}
+
+/**
+ * Whether a frame is too unsettled to detect on.
+ *
+ * Named and exported rather than inlined at the call site so the policy has one
+ * definition. A duplicate of this rule living in a test would pass while the
+ * engine did something else entirely, which is the failure mode that hides a
+ * regression rather than catching it.
+ *
+ * Two signals, because the obvious one is not enough alone: a whip pan across a
+ * room of separate objects lights up only a modest fraction of the frame, well
+ * under any sane area threshold, while being pure camera motion. What gives it
+ * away is the estimator failing — either the probe blocks disagreed, or they
+ * agreed on a displacement pinned to the edge of the search window, which means
+ * the real one lies beyond it. With compensation switched off there is no
+ * estimate to judge and the area signal stands alone.
+ */
+export function isFrameUnstable(motionRatio: number, camera: GlobalMotion, cfg: DetectConfig): boolean {
+    if (!cfg.stabilityGate) return false;
+    if (motionRatio > cfg.unstableAbovePct / 100) return true;
+    const compensationLost = cfg.compensateCameraMotion && (camera.confidence < 0.5 || camera.clipped);
+    return compensationLost && motionRatio > 0.06;
 }
 
 /** Analysis buffer size for a given video, honouring the configured width. */

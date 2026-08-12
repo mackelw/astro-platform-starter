@@ -1,5 +1,5 @@
 import { BlobFinder } from './blobs';
-import { MotionDetector, processingSize } from './detect';
+import { MotionDetector, isFrameUnstable, processingSize } from './detect';
 import { MultiTracker } from './tracker';
 import { TemplateTracker } from './template';
 import type { DetectConfig, FrameResult, Rect, Track, TrackConfig } from './types';
@@ -129,12 +129,17 @@ export class MotionEngine {
         const dt = this.lastT >= 0 && t > this.lastT ? t - this.lastT : 0;
         this.lastT = t;
 
-        const blobs =
-            autoDetect && this.detector.primed
-                ? this.blobs.find(detection.mask, this.detector.lastDiff, this.procW, this.procH, scale, cfg)
-                : [];
+        // A frame where the scene never settled says nothing about *which*
+        // object moved — everything moved. Mining it spawns a track per
+        // background edge, which is what a hand-moved camera used to produce.
+        const unstable = isFrameUnstable(detection.motionRatio, detection.camera, cfg);
 
-        if (autoDetect && this.detector.primed) {
+        const canDetect = autoDetect && this.detector.primed && !unstable;
+        const blobs = canDetect
+            ? this.blobs.find(detection.mask, this.detector.lastDiff, this.procW, this.procH, scale, cfg)
+            : [];
+
+        if (canDetect) {
             this.tracker.update(blobs, t, trackCfg);
         }
 
@@ -148,6 +153,7 @@ export class MotionEngine {
             blobs,
             motionRatio: detection.motionRatio,
             camera: detection.camera,
+            unstable,
             costMs: performance.now() - started
         };
         this.lastResult = result;
