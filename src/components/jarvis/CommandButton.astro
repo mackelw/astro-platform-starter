@@ -1,0 +1,18 @@
+---
+interface Props {
+    /** The command itself, e.g. `/browser`. Shown as the tile's key line. */
+    command: string;
+    /** Short uppercase description under it. */
+    label?: string;
+    /** Commands that take a payload stay armed until the payload arrives. */
+    armed?: boolean;
+    class?: string;
+}
+
+const { command, label, armed = false, class: className } = Astro.props;
+---
+
+<button type="button" class:list={['hud-command', armed && 'is-armed', className]} data-command={command} aria-pressed={armed}>
+    <b class="hud-command__key">{command}</b>
+    {label && <span class="hud-command__label">{label}</span>}
+</button>

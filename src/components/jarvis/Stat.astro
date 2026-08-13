@@ -1,0 +1,17 @@
+---
+import { toneVar, type Tone } from './tones';
+
+interface Props {
+    label: string;
+    value: string;
+    tone?: Tone;
+    class?: string;
+}
+
+const { label, value, tone = 'cyan', class: className } = Astro.props;
+---
+
+<div class:list={['hud-stat', className]}>
+    <span class="hud-stat__label">{label}</span>
+    <b class="hud-stat__value" style={`--hud-tone: ${toneVar(tone)}`}>{value}</b>
+</div>

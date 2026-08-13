@@ -1,0 +1,13 @@
+---
+interface Props {
+    /** Columns in the grid. Defaults to the HUD's two-up readout. */
+    columns?: number;
+    class?: string;
+}
+
+const { columns = 2, class: className } = Astro.props;
+---
+
+<div class:list={['hud-stat-grid', className]} style={`grid-template-columns: repeat(${columns}, minmax(0, 1fr))`}>
+    <slot />
+</div>

@@ -1,0 +1,11 @@
+---
+interface Props {
+    /** Dimmed styling for placeholder or unavailable entries. */
+    ghost?: boolean;
+    class?: string;
+}
+
+const { ghost = false, class: className } = Astro.props;
+---
+
+<span class:list={['hud-chip', ghost && 'hud-chip--ghost', className]}><slot /></span>

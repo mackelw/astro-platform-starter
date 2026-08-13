@@ -1,0 +1,15 @@
+---
+interface Props {
+    /** Element to render as — `section` by default. */
+    as?: string;
+    /** Set false to drop the diagonal corner sheen. */
+    sheen?: boolean;
+    class?: string;
+}
+
+const { as: Tag = 'section', sheen = true, class: className }: Props = Astro.props;
+---
+
+<Tag class:list={['hud-panel', !sheen && 'hud-panel--plain', className]}>
+    <slot />
+</Tag>

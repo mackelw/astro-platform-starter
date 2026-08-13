@@ -17,6 +17,48 @@ All commands are run from the root of the project, from a terminal:
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
 
+## JARVIS HUD design system
+
+A mission-control design system ported from the `jarvis-hermes-dashboard` UI. Run the dev server and open
+[`/jarvis`](http://localhost:4321/jarvis) for a live specimen sheet of every token and component.
+
+| File                          | Contains                                                                                                                                                           |
+| :---------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/styles/jarvis.css`       | `@theme` tokens (colour, font, radius, shadow, animation) and the `.hud-*` component classes                                                                       |
+| `src/components/jarvis/`      | Astro wrappers: `Panel`, `PanelHeading`, `Pill`, `CommandButton`, `Chip`, `StatGrid` / `Stat`, `TelemetryLog` / `LogEntry` / `JsonBlock`, `Reactor`, `HudBackdrop` |
+| `src/layouts/HudLayout.astro` | Page shell — HUD ground, fonts and atmospherics                                                                                                                    |
+
+Tokens are namespaced (`--color-hud-*`, `--font-hud-*`, `--radius-hud-*`), so they extend the starter's theme
+rather than replacing it and the existing pages are unaffected. They surface as ordinary Tailwind utilities:
+
+```astro
+<div class="border-hud-edge text-hud-cyan font-hud-mono rounded-hud-panel">…</div>
+```
+
+Every component is a thin wrapper over a plain CSS class, so React islands and hand-written markup can use the
+same styling without importing anything:
+
+```astro
+---
+import Panel from '../components/jarvis/Panel.astro';
+import Reactor from '../components/jarvis/Reactor.astro';
+---
+
+<Panel class="p-6">
+    <Reactor state="running" word="RUNNING" caption="thinking… 2.4s" />
+</Panel>
+
+<!-- or, with no imports at all -->
+<section class="hud-panel">
+    <button class="hud-command is-armed"><b class="hud-command__key">/goal</b></button>
+</section>
+```
+
+`Reactor` sizes its readout from its own width, so one `size` prop scales the whole core. Telemetry accents are
+driven by a single `--hud-tone` custom property — a new `LogEntry` kind is one entry in
+`src/components/jarvis/tones.ts` and one rule in `jarvis.css`. All animation is disabled under
+`prefers-reduced-motion`.
+
 ## Deploying to Netlify
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/netlify-templates/astro-platform-starter)
