@@ -1,0 +1,845 @@
+<title>لوحة عيادة رينج</title>
+
+<style>
+  :root{
+    --paper:#F2F4F7;
+    --surface:#FFFFFF;
+    --surface-2:#E8ECF4;
+    --sunken:#EDF0F6;
+    --line:#D6DCE8;
+    --line-strong:#B4BFD4;
+    --text:#131829;
+    --text-2:#565F76;
+    --text-3:#8892A8;
+    --ink:#22347C;
+    --ink-2:#3B52B0;
+    --ink-soft:#E4E9F8;
+    --on-ink:#FFFFFF;
+    --good:#146B5E;
+    --good-soft:#DCEDE8;
+    --warn:#8F5406;
+    --warn-soft:#F6E9D3;
+    --crit:#9E3129;
+    --crit-soft:#F7DFDC;
+    --shadow:0 1px 2px rgba(19,24,41,.05), 0 8px 20px -14px rgba(19,24,41,.35);
+
+    --font-ar:"SF Arabic","Geeza Pro","Noto Naskh Arabic","Segoe UI",Tahoma,system-ui,sans-serif;
+    --font-num:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+
+    --r:10px;
+    --r-sm:6px;
+  }
+
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0D1120;
+      --surface:#161B2C;
+      --surface-2:#1E2438;
+      --sunken:#111625;
+      --line:#2A3149;
+      --line-strong:#3E4762;
+      --text:#E8EBF3;
+      --text-2:#A3ABC1;
+      --text-3:#737C94;
+      --ink:#94A9FF;
+      --ink-2:#B4C1FF;
+      --ink-soft:#1C2445;
+      --on-ink:#0D1120;
+      --good:#5FC8B3;
+      --good-soft:#10302B;
+      --warn:#E2A54E;
+      --warn-soft:#2E2415;
+      --crit:#F0837A;
+      --crit-soft:#331A1A;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"]{
+    --paper:#0D1120;
+    --surface:#161B2C;
+    --surface-2:#1E2438;
+    --sunken:#111625;
+    --line:#2A3149;
+    --line-strong:#3E4762;
+    --text:#E8EBF3;
+    --text-2:#A3ABC1;
+    --text-3:#737C94;
+    --ink:#94A9FF;
+    --ink-2:#B4C1FF;
+    --ink-soft:#1C2445;
+    --on-ink:#0D1120;
+    --good:#5FC8B3;
+    --good-soft:#10302B;
+    --warn:#E2A54E;
+    --warn-soft:#2E2415;
+    --crit:#F0837A;
+    --crit-soft:#331A1A;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    direction:rtl;
+    background:var(--paper);
+    color:var(--text);
+    font-family:var(--font-ar);
+    font-size:15px;
+    line-height:1.7;
+    margin:0;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 20px 72px;}
+
+  /* ---------- masthead ---------- */
+
+  .masthead{
+    display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+    gap:20px;padding-bottom:20px;margin-bottom:26px;
+    border-bottom:2px solid var(--ink);
+  }
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand svg{flex:none;color:var(--ink);}
+  .brand h1{
+    font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.25;
+    text-wrap:balance;
+  }
+  .brand p{margin:2px 0 0;color:var(--text-2);font-size:13.5px;}
+  .masthead-meta{
+    font-family:var(--font-num);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--text-3);text-align:left;direction:ltr;
+  }
+
+  /* ---------- tabs ---------- */
+
+  .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:28px;border-bottom:1px solid var(--line);}
+  .tab{
+    appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+    font-family:inherit;font-size:14.5px;font-weight:600;color:var(--text-2);
+    padding:10px 16px;margin-bottom:-1px;cursor:pointer;border-radius:var(--r-sm) var(--r-sm) 0 0;
+    display:flex;align-items:center;gap:8px;
+  }
+  .tab:hover{color:var(--text);background:var(--surface-2);}
+  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink);}
+  .tab:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+  .tab .count{
+    font-family:var(--font-num);font-size:11px;font-weight:600;
+    background:var(--surface-2);color:var(--text-2);
+    padding:1px 6px;border-radius:999px;
+  }
+  .tab[aria-selected="true"] .count{background:var(--ink-soft);color:var(--ink);}
+
+  .panel[hidden]{display:none;}
+
+  /* ---------- shared bits ---------- */
+
+  .screen-note{
+    display:flex;gap:12px;align-items:flex-start;
+    background:var(--sunken);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px 14px;margin-bottom:22px;font-size:13.5px;color:var(--text-2);
+  }
+  .screen-note b{color:var(--text);font-weight:600;}
+  .screen-note .marker{
+    flex:none;font-family:var(--font-num);font-size:10px;letter-spacing:.08em;
+    color:var(--ink);background:var(--ink-soft);border-radius:var(--r-sm);
+    padding:3px 7px;margin-top:2px;direction:ltr;
+  }
+
+  h2.section{
+    font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-3);margin:0 0 12px;
+  }
+
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;
+    border:1px solid transparent;white-space:nowrap;
+  }
+  .chip.admin{background:var(--surface-2);color:var(--text-2);border-color:var(--line-strong);}
+  .chip.clinical{background:var(--ink-soft);color:var(--ink);border-color:var(--ink);}
+  .chip.complaint{background:var(--crit-soft);color:var(--crit);border-color:var(--crit);}
+  .chip.good{background:var(--good-soft);color:var(--good);border-color:var(--good);}
+  .chip.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn);}
+  .chip.crit{background:var(--crit-soft);color:var(--crit);border-color:var(--crit);}
+
+  .id{font-family:var(--font-num);font-size:12px;color:var(--text-3);direction:ltr;display:inline-block;}
+
+  /* ---------- approval queue ---------- */
+
+  .queue{display:flex;flex-direction:column;gap:16px;}
+
+  .item{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .item-head{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .item-head .who{font-weight:600;}
+  .item-head .spacer{flex:1;}
+  .channel{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;color:var(--text-2);
+  }
+  .channel svg{flex:none;}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;}
+  @media (max-width:760px){.pair{grid-template-columns:1fr;}}
+
+  .side{padding:16px;}
+  .side + .side{border-inline-start:1px solid var(--line);}
+  @media (max-width:760px){
+    .side + .side{border-inline-start:0;border-top:1px solid var(--line);}
+  }
+  .side-label{
+    font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-3);margin-bottom:10px;
+  }
+
+  .inbound{
+    background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:12px 14px;font-size:14.5px;
+  }
+  .inbound .stamp{
+    display:block;font-family:var(--font-num);font-size:11px;color:var(--text-3);
+    margin-top:8px;direction:ltr;
+  }
+
+  /* the gate, made visible */
+  .draft{
+    position:relative;border:1.5px dashed var(--line-strong);border-radius:var(--r-sm);
+    padding:12px 14px;font-size:14.5px;
+    background-color:var(--surface);
+    background-image:repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--text-3) 9%, transparent) 0 1px,
+      transparent 1px 9px
+    );
+  }
+  .draft::after{
+    content:"غير معتمد";
+    position:absolute;top:-9px;inset-inline-start:12px;
+    background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;
+    font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--text-2);
+    padding:0 8px;line-height:16px;
+  }
+  .item.approved .draft{
+    border-style:solid;border-color:var(--good);
+    background-image:none;background-color:var(--good-soft);
+  }
+  .item.approved .draft::after{
+    content:"معتمد — د. مايكل مجدي";
+    border-color:var(--good);color:var(--good);background:var(--surface);
+  }
+  .no-draft{
+    border:1.5px solid var(--crit);border-radius:var(--r-sm);
+    background:var(--crit-soft);color:var(--crit);
+    padding:12px 14px;font-size:14px;font-weight:600;
+  }
+  .no-draft span{display:block;font-weight:400;color:var(--text-2);margin-top:4px;font-size:13.5px;}
+
+  .actions{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    padding:12px 16px;border-top:1px solid var(--line);background:var(--sunken);
+  }
+  .actions .gate-note{
+    flex:1;min-width:200px;font-size:12.5px;color:var(--text-3);
+  }
+
+  .btn{
+    appearance:none;font-family:inherit;font-size:13.5px;font-weight:600;
+    padding:7px 14px;border-radius:var(--r-sm);cursor:pointer;
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--text);
+  }
+  .btn:hover{border-color:var(--text-3);}
+  .btn:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+  .btn.primary{background:var(--ink);border-color:var(--ink);color:var(--on-ink);}
+  .btn.primary:hover{background:var(--ink-2);border-color:var(--ink-2);}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+  /* ---------- follow-up ---------- */
+
+  .stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px;margin-bottom:24px;
+  }
+  .stat{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px 16px;box-shadow:var(--shadow);
+  }
+  .stat .k{font-size:12px;color:var(--text-2);margin-bottom:4px;}
+  .stat .v{
+    font-family:var(--font-num);font-size:26px;font-weight:600;line-height:1.1;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat.is-crit .v{color:var(--crit);}
+  .stat.is-warn .v{color:var(--warn);}
+  .stat.is-good .v{color:var(--good);}
+
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;min-width:680px;}
+  thead th{
+    text-align:start;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--text-3);padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  tbody td{padding:13px 14px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr{position:relative;}
+  tbody td:first-child{border-inline-start:3px solid transparent;}
+  tr.sev-crit td:first-child{border-inline-start-color:var(--crit);}
+  tr.sev-warn td:first-child{border-inline-start-color:var(--warn);}
+  tr.sev-good td:first-child{border-inline-start-color:var(--good);}
+  tr.sev-info td:first-child{border-inline-start-color:var(--line-strong);}
+  /* machine identifiers stay LTR; measurements stay in the reading direction */
+  td.num{font-family:var(--font-num);font-variant-numeric:tabular-nums;direction:ltr;text-align:start;}
+  td.metric{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  td.metric .was{color:var(--text-3);}
+  .trigger{color:var(--text-2);font-size:13px;}
+
+  /* ---------- case file ---------- */
+
+  .case{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start;}
+  @media (max-width:860px){.case{grid-template-columns:1fr;}}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .card-head{
+    padding:14px 16px;border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;
+  }
+  .card-head h3{margin:0;font-size:16px;font-weight:700;}
+  .card-body{padding:16px;}
+
+  .chart .grid line{stroke:var(--line);stroke-width:1;}
+  .chart .axis{stroke:var(--line-strong);stroke-width:1.5;}
+  .chart .tick{fill:var(--text-3);font-family:var(--font-num);font-size:10px;}
+  .chart .rom-area{fill:var(--ink);fill-opacity:.10;}
+  .chart .rom-line{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;}
+  .chart .pain-line{fill:none;stroke:var(--warn);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;}
+  .chart .plateau{fill:var(--warn);fill-opacity:.14;}
+  .chart .dot-pain{fill:var(--warn);}
+  .chart .dot-rom{fill:var(--ink);}
+
+  .chart-legend{
+    display:flex;flex-wrap:wrap;gap:16px;font-size:12.5px;color:var(--text-2);margin-top:10px;
+  }
+  .chart-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-inline-end:6px;vertical-align:middle;}
+
+  dl.facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px;}
+  dl.facts dt{color:var(--text-2);}
+  dl.facts dd{margin:0;font-weight:600;}
+
+  ol.sessions{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;}
+  ol.sessions li{
+    display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;
+  }
+  ol.sessions li:last-child{border-bottom:0;padding-bottom:0;}
+  ol.sessions .when{
+    flex:none;width:74px;font-family:var(--font-num);font-size:12px;color:var(--text-3);
+    direction:ltr;text-align:start;padding-top:3px;
+  }
+  ol.sessions .what b{display:block;font-weight:600;}
+  ol.sessions .what span{color:var(--text-2);font-size:13.5px;}
+
+  /* ---------- design notes ---------- */
+
+  .notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;}
+  .swatches{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;}
+  .sw{width:82px;}
+  .sw .box{height:46px;border-radius:var(--r-sm);border:1px solid var(--line);}
+  .sw .lbl{font-size:11.5px;color:var(--text-2);margin-top:5px;line-height:1.35;}
+  .sw .hex{font-family:var(--font-num);font-size:10.5px;color:var(--text-3);direction:ltr;}
+
+  .notes-grid p{margin:0 0 10px;font-size:14px;color:var(--text-2);}
+  .notes-grid p:last-child{margin-bottom:0;}
+  .notes-grid strong{color:var(--text);font-weight:600;}
+
+  .foot{
+    margin-top:34px;padding-top:18px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--text-3);
+  }
+  .foot code{font-family:var(--font-num);font-size:12px;color:var(--text-2);direction:ltr;}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brand">
+      <svg width="30" height="34" viewBox="0 0 30 34" fill="none" aria-hidden="true">
+        <path d="M15 2v30" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M9 6h12M8 12h14M7 18h16M8 24h14M10 30h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>لوحة عيادة رينج</h1>
+        <p>العلاج الطبيعي وإصابات الملاعب — واجهة الطاقم الداخلية</p>
+      </div>
+    </div>
+    <div class="masthead-meta">
+      DESIGN R1 · PHASES 0–4<br>
+      Dr Michael Magdy
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="شاشات النظام">
+    <button class="tab" role="tab" id="tab-1" aria-controls="p1" aria-selected="true">
+      طابور الموافقات <span class="count">3</span>
+    </button>
+    <button class="tab" role="tab" id="tab-2" aria-controls="p2" aria-selected="false">
+      متابعة الحالات <span class="count">5</span>
+    </button>
+    <button class="tab" role="tab" id="tab-3" aria-controls="p3" aria-selected="false">
+      ملف الحالة
+    </button>
+    <button class="tab" role="tab" id="tab-4" aria-controls="p4" aria-selected="false">
+      قرارات التصميم
+    </button>
+  </div>
+
+  <!-- ============ 1. APPROVAL QUEUE ============ -->
+  <section class="panel" id="p1" role="tabpanel" aria-labelledby="tab-1">
+
+    <div class="screen-note">
+      <span class="marker">المرحلة ٢</span>
+      <div>
+        الرسالة الواردة تُعرض <b>دائمًا بجانب</b> الرد المقترح — الموافقة على رد دون رؤية ما يرد عليه تُبطل البوابة.
+        كل مسودة تُرسم على أرضية مخططة بحدود متقطعة حتى يعتمدها إنسان بالاسم.
+      </div>
+    </div>
+
+    <h2 class="section">بانتظار الاعتماد</h2>
+
+    <div class="queue">
+
+      <!-- item 1: clinical consultation -->
+      <article class="item" id="item-1">
+        <div class="item-head">
+          <span class="who">م. ع.</span>
+          <span class="id">#IG-4471</span>
+          <span class="chip clinical">استشارة — تحتاج الدكتور</span>
+          <span class="spacer"></span>
+          <span class="channel">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="2.5" y="2.5" width="15" height="15" rx="4.5" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="10" cy="10" r="3.6" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="14.6" cy="5.4" r="1.1" fill="currentColor"/>
+            </svg>
+            إنستجرام · رسالة خاصة
+          </span>
+        </div>
+
+        <div class="pair">
+          <div class="side">
+            <div class="side-label">الرسالة الواردة</div>
+            <div class="inbound">
+              السلام عليكم، أنا عندي ألم في الركبة اليمين من حوالي أسبوعين، بيزيد لما بنزل السلم
+              وبيقل لما أرتاح. محتاج أعرف السبب وهل محتاج أشعة ولا لأ؟
+              <span class="stamp">اليوم · 11:42</span>
+            </div>
+          </div>
+          <div class="side">
+            <div class="side-label">الرد المقترح — مصري</div>
+            <div class="draft">
+              أهلاً بحضرتك 🙏 وجع الركبة وقت نزول السلّم ليه أكتر من سبب، وما ينفعش نحدده من غير كشف
+              وفحص إكلينيكي. تحت أمرك تحجز معانا وهنقيّم الحالة ونقولك لو محتاج أشعة فعلاً.
+              الكشف من السبت للخميس، ٤ م — ٩ م. تحب أحجزلك امتى؟
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <span class="gate-note">لا تشخيص عبر الرسائل — الرد يعترف بالشكوى ويدعو للكشف فقط.</span>
+          <button class="btn" type="button">تعديل</button>
+          <button class="btn primary" type="button" data-approve="item-1">اعتماد وإرسال</button>
+        </div>
+      </article>
+
+      <!-- item 2: admin -->
+      <article class="item" id="item-2">
+        <div class="item-head">
+          <span class="who">ن. ط.</span>
+          <span class="id">#FB-9012</span>
+          <span class="chip admin">إداري — اعتماد الطاقم</span>
+          <span class="spacer"></span>
+          <span class="channel">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="2.5" y="2.5" width="15" height="15" rx="4.5" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12.4 6.6h-1.2c-.9 0-1.4.5-1.4 1.4V10m-1.6 0h4.4M11 10v7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            فيسبوك · تعليق
+          </span>
+        </div>
+
+        <div class="pair">
+          <div class="side">
+            <div class="side-label">الرسالة الواردة</div>
+            <div class="inbound">
+              الجلسة بكام؟ وفيه خصم لو حجزت باقة؟
+              <span class="stamp">اليوم · 10:05</span>
+            </div>
+          </div>
+          <div class="side">
+            <div class="side-label">الرد المقترح — مصري</div>
+            <div class="draft">
+              أهلاً بيك 🌟 سعر الجلسة ٣٥٠ جنيه، وباقة الـ ١٠ جلسات ٣٠٠٠ جنيه.
+              الكشف والتقييم الأول ٤٠٠ جنيه وبيتحسب من أول جلسة. تحت أمرك في أي استفسار.
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <span class="gate-note">الأسعار مسحوبة من ملف الأسعار المعتمد — لا يخترعها النموذج.</span>
+          <button class="btn" type="button">تعديل</button>
+          <button class="btn primary" type="button" data-approve="item-2">اعتماد وإرسال</button>
+        </div>
+      </article>
+
+      <!-- item 3: complaint, no draft -->
+      <article class="item" id="item-3">
+        <div class="item-head">
+          <span class="who">ه. ف.</span>
+          <span class="id">#FB-9018</span>
+          <span class="chip complaint">شكوى — للدكتور مباشرة</span>
+          <span class="spacer"></span>
+          <span class="channel">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="2.5" y="2.5" width="15" height="15" rx="4.5" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12.4 6.6h-1.2c-.9 0-1.4.5-1.4 1.4V10m-1.6 0h4.4M11 10v7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            فيسبوك · رسالة خاصة
+          </span>
+        </div>
+
+        <div class="pair">
+          <div class="side">
+            <div class="side-label">الرسالة الواردة</div>
+            <div class="inbound">
+              أنا حجزت من إمبارح ومحدش رد عليّا، ولما جيت لقيت الميعاد اتلغى من غير ما حد يبلغني.
+              <span class="stamp">اليوم · 09:18</span>
+            </div>
+          </div>
+          <div class="side">
+            <div class="side-label">لا توجد مسودة</div>
+            <div class="no-draft">
+              الشكاوى لا تُصاغ آليًا
+              <span>الحالة مرفوعة للدكتور مع سجل الحجز الكامل. الرد يُكتب بالكامل بيد إنسان.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <span class="gate-note">قاعدة مقصودة: اعتذار مولَّد آليًا يُفاقم الشكوى، لا يحلّها.</span>
+          <button class="btn" type="button">فتح سجل الحجز</button>
+          <button class="btn primary" type="button">كتابة رد</button>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============ 2. FOLLOW-UP ============ -->
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="tab-2" hidden>
+
+    <div class="screen-note">
+      <span class="marker">المرحلة ٤ ★</span>
+      <div>
+        الكشف يتم بـ <b>SQL لا بنموذج لغوي</b> — «لا جلسة منذ ١٤ يومًا» و«الألم ثابت عبر ٣ جلسات» استعلامات.
+        النموذج يكتب صياغة التنبيه فقط، فانقطاع الخدمة يُعطّل النص لا شبكة الأمان.
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">حالات نشطة</div><div class="v">38</div></div>
+      <div class="stat is-crit"><div class="k">تراجع</div><div class="v">1</div></div>
+      <div class="stat is-warn"><div class="k">ثبات أو انقطاع</div><div class="v">3</div></div>
+      <div class="stat is-good"><div class="k">جاهز للخروج</div><div class="v">1</div></div>
+    </div>
+
+    <h2 class="section">تنبيهات اليوم — الأحد 14 سبتمبر</h2>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">الحالة</th>
+            <th scope="col">التشخيص</th>
+            <th scope="col">التنبيه</th>
+            <th scope="col">آخر جلسة</th>
+            <th scope="col">الألم — بداية ← الآن</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="sev-crit">
+            <td><span class="id">#1103</span> ه. ف.</td>
+            <td>ألم أسفل الظهر — انزلاق غضروفي L4‑L5</td>
+            <td>
+              <span class="chip crit">تراجع</span>
+              <div class="trigger">مدى الحركة الأمامي نقص 15° عبر جلستين</div>
+            </td>
+            <td class="num">2026‑09‑11</td>
+            <td class="metric"><span class="was">5</span> ← 7</td>
+          </tr>
+          <tr class="sev-warn">
+            <td><span class="id">#1042</span> م. ع.</td>
+            <td>إعادة تأهيل الرباط الصليبي الأمامي</td>
+            <td>
+              <span class="chip warn">انقطاع متابعة</span>
+              <div class="trigger">12 يومًا بلا جلسة والحالة نشطة</div>
+            </td>
+            <td class="num">2026‑09‑02</td>
+            <td class="metric">3</td>
+          </tr>
+          <tr class="sev-warn">
+            <td><span class="id">#1078</span> س. م.</td>
+            <td>الكتف المتجمد — التهاب المحفظة اللاصق</td>
+            <td>
+              <span class="chip warn">ثبات</span>
+              <div class="trigger">مقياس الألم 5/10 دون تغيّر عبر 3 جلسات</div>
+            </td>
+            <td class="num">2026‑09‑13</td>
+            <td class="metric"><span class="was">5</span> ← 5</td>
+          </tr>
+          <tr class="sev-info">
+            <td><span class="id">#1091</span> ر. ح.</td>
+            <td>التهاب اللفافة الأخمصية</td>
+            <td>
+              <span class="chip admin">مراجعة مستحقة</span>
+              <div class="trigger">تاريخ مراجعة البرنامج المنزلي حلّ اليوم</div>
+            </td>
+            <td class="num">2026‑09‑12</td>
+            <td class="metric"><span class="was">6</span> ← 4</td>
+          </tr>
+          <tr class="sev-good">
+            <td><span class="id">#0994</span> ن. ط.</td>
+            <td>التواء الكاحل — الدرجة الثانية</td>
+            <td>
+              <span class="chip good">جاهز للخروج</span>
+              <div class="trigger">أهداف النتائج محققة ومستقرة جلستين</div>
+            </td>
+            <td class="num">2026‑09‑13</td>
+            <td class="metric"><span class="was">7</span> ← 1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 3. CASE FILE ============ -->
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="tab-3" hidden>
+
+    <div class="screen-note">
+      <span class="marker">المرحلة ٠</span>
+      <div>
+        السجل الإكلينيكي هو محور النظام كله ويسبق كل الوكلاء. كل صف <b>يُضاف ولا يُعدَّل</b> —
+        التصحيح صف جديد، والأصل يبقى في السجل.
+      </div>
+    </div>
+
+    <div class="case">
+
+      <div class="card">
+        <div class="card-head">
+          <h3>س. م.</h3>
+          <span class="id">#1078</span>
+          <span class="chip warn">ثبات</span>
+        </div>
+        <div class="card-body">
+          <h2 class="section">مقياس الألم ومدى الحركة عبر الجلسات</h2>
+
+          <svg class="chart" viewBox="0 0 520 190" width="100%" height="190" role="img"
+               aria-label="مخطط: مقياس الألم ثابت عند ٥ من الجلسة السابعة، ومدى حركة الرفع الجانبي تحسّن من ٦٥ إلى ١١٢ درجة ثم شبه توقف.">
+            <!-- RTL time series: session 1 sits at the right, latest at the left -->
+            <g class="grid">
+              <line x1="20" y1="20"  x2="480" y2="20"/>
+              <line x1="20" y1="60"  x2="480" y2="60"/>
+              <line x1="20" y1="100" x2="480" y2="100"/>
+              <line x1="20" y1="140" x2="480" y2="140"/>
+            </g>
+            <line class="axis" x1="20" y1="160" x2="480" y2="160"/>
+
+            <g class="tick" text-anchor="start">
+              <text x="490" y="24">10</text>
+              <text x="490" y="104">5</text>
+              <text x="490" y="164">0</text>
+            </g>
+
+            <path class="rom-area" d="M450,131 L364,117 L278,96 L192,74 L106,66 L50,64 L50,160 L450,160 Z"/>
+            <path class="rom-line" d="M450,131 L364,117 L278,96 L192,74 L106,66 L50,64"/>
+
+            <path class="pain-line" d="M450,44 L364,60 L278,76 L192,100 L106,100 L50,100"/>
+
+            <rect class="plateau" x="50" y="92" width="142" height="16"/>
+            <circle class="dot-pain" cx="50" cy="100" r="4.5"/>
+            <circle class="dot-rom" cx="50" cy="64" r="4.5"/>
+
+            <g class="tick" text-anchor="middle">
+              <text x="450" y="177">ج1</text>
+              <text x="364" y="177">ج3</text>
+              <text x="278" y="177">ج5</text>
+              <text x="192" y="177">ج7</text>
+              <text x="106" y="177">ج9</text>
+              <text x="50"  y="177">ج10</text>
+            </g>
+          </svg>
+
+          <div class="chart-legend">
+            <span><i style="background:var(--warn)"></i>مقياس الألم 0–10</span>
+            <span><i style="background:var(--ink)"></i>الرفع الجانبي بالدرجات</span>
+            <span style="color:var(--warn);font-weight:600">الثبات يبدأ من الجلسة 7</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:18px;">
+
+        <div class="card">
+          <div class="card-head"><h3>بيانات الحالة</h3></div>
+          <div class="card-body">
+            <dl class="facts">
+              <dt>التشخيص</dt><dd>الكتف المتجمد — التهاب المحفظة اللاصق</dd>
+              <dt>بداية الأعراض</dt><dd>مايو 2026</dd>
+              <dt>الجلسات</dt><dd>10 من 12</dd>
+              <dt>الرفع الجانبي</dt><dd>112° <span style="color:var(--text-2);font-weight:400">(من 65°)</span></dd>
+              <dt>الدوران الخارجي</dt><dd>40° <span style="color:var(--text-2);font-weight:400">(من 15°)</span></dd>
+              <dt>المعالج</dt><dd>أ. عبد الرحمن</dd>
+              <dt>مصدر الإحالة</dt><dd>الأقارب والأصحاب</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>آخر الجلسات</h3></div>
+          <div class="card-body">
+            <ol class="sessions">
+              <li>
+                <span class="when">09‑13</span>
+                <span class="what"><b>جلسة 10</b><span>موجات تصادمية + إطالة محفظة · ألم 5/10 قبل، 5/10 بعد</span></span>
+              </li>
+              <li>
+                <span class="when">09‑09</span>
+                <span class="what"><b>جلسة 9</b><span>تعبئة مفصلية درجة 3 · ألم 5/10 قبل، 4/10 بعد</span></span>
+              </li>
+              <li>
+                <span class="when">09‑05</span>
+                <span class="what"><b>جلسة 8</b><span>تمارين بندولية + مقاومة خفيفة · ألم 5/10</span></span>
+              </li>
+              <li>
+                <span class="when">09‑01</span>
+                <span class="what"><b>مراجعة البرنامج المنزلي</b><span>الالتزام ضعيف — 3 أيام من 7 حسب إفادة المريضة</span></span>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. DESIGN NOTES ============ -->
+  <section class="panel" id="p4" role="tabpanel" aria-labelledby="tab-4" hidden>
+
+    <div class="screen-note">
+      <span class="marker">المرجع</span>
+      <div>القرارات البصرية ومن أين جاءت — حتى يظل التصميم قابلًا للمراجعة كما الـspec.</div>
+    </div>
+
+    <div class="notes-grid">
+
+      <div class="card">
+        <div class="card-head"><h3>اللون</h3></div>
+        <div class="card-body">
+          <p>من عالم العيادة نفسه: ختم حبر أزرق على ورق أبيض. الأزرق ليس اختيارًا عامًا — هو لون هوية العيادة القائم.</p>
+          <div class="swatches">
+            <div class="sw"><div class="box" style="background:#22347C"></div><div class="lbl">حبر أساسي<div class="hex">#22347C</div></div></div>
+            <div class="sw"><div class="box" style="background:#F2F4F7"></div><div class="lbl">ورق<div class="hex">#F2F4F7</div></div></div>
+            <div class="sw"><div class="box" style="background:#146B5E"></div><div class="lbl">تحسّن<div class="hex">#146B5E</div></div></div>
+            <div class="sw"><div class="box" style="background:#8F5406"></div><div class="lbl">ثبات<div class="hex">#8F5406</div></div></div>
+            <div class="sw"><div class="box" style="background:#9E3129"></div><div class="lbl">تراجع<div class="hex">#9E3129</div></div></div>
+          </div>
+          <p style="margin-top:14px">الألوان الدلالية الثلاثة منفصلة تمامًا عن الأزرق الأساسي، فلا يلتبس «هذا زر» بـ«هذه حالة حرجة».</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>الخط</h3></div>
+        <div class="card-body">
+          <p><strong>عربي أولًا</strong>، بخط النظام الأصلي مُسمّى صراحةً: SF Arabic ثم Noto Naskh Arabic ثم Segoe UI. اختيار مقصود لا احتياطي — الأداة تُشغَّل على أجهزة العيادة وتحتاج أن تُقرأ فورًا.</p>
+          <p>الأرقام والمعرّفات والتواريخ بخط أحادي المسافة مع <code style="font-family:var(--font-num);font-size:12px">tabular-nums</code> لتصطف في الأعمدة. الهرمية من الوزن والمسافة، لا من خطوط استعراضية.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>البوابة كعمود بصري</h3></div>
+        <div class="card-body">
+          <p>«بعد التأكد من الدكتور» ليست إعدادًا بل قيد في الـschema. التصميم يجعله مرئيًا:</p>
+          <div class="draft" style="margin:12px 0 14px">نص غير معتمد — أرضية مخططة وحدود متقطعة.</div>
+          <p>وبعد الاعتماد يتحول إلى سطح صلب يحمل اسم من اعتمده. ما لم يمرّ ببشر لا يبدو أبدًا كنص نهائي.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>الأرقام</h3></div>
+        <div class="card-body">
+          <p>الواجهة عربية، لكن <strong>كل قياس إكلينيكي بأرقام غربية</strong>. السبب سلامة لا ذوق: الخمسة العربية <span style="font-size:17px">٥</span> تكاد تطابق الصفر الغربي <span style="font-size:17px">0</span> شكلًا، وعمود مقاييس ألم يُقرأ بسرعة لا يحتمل هذا الالتباس.</p>
+          <p>الأرقام العربية تبقى في النص السردي فقط — الملاحظات والرسائل — حيث لا يُقارن رقم برقم.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>الحالة في الشكل لا الرقم</h3></div>
+        <div class="card-body">
+          <p>كل صف تنبيه يحمل شريط شدة على حافته الابتدائية، ورقاقة نصية، ونص المُطلِق تحتها. ثلاث طبقات: لون للمسح السريع، نص للوضوح، سبب للثقة.</p>
+          <p>اللون وحده لا يحمل معنى أبدًا — كل شريط ملوّن يقابله نص مكتوب، فالتصميم يعمل مع عمى الألوان ومع الطباعة بالأبيض والأسود.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <p class="foot">
+    مشتق من <code>docs/range-clinic-agents.md</code> — الشاشات الثلاث تغطي المراحل ٠ و٢ و٤ من ترتيب البناء.
+    المرحلة ١ (ملخص الأبحاث) والمرحلة ٦ (التقييم) لم تُصمَّم بعد.
+  </p>
+
+</div>
+
+<script>
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+
+    function select(tab) {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+    }
+
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        var i = tabs.indexOf(t);
+        // RTL: ArrowLeft advances, ArrowRight goes back
+        if (e.key === 'ArrowLeft') { tabs[(i + 1) % tabs.length].focus(); select(tabs[(i + 1) % tabs.length]); }
+        if (e.key === 'ArrowRight') { tabs[(i - 1 + tabs.length) % tabs.length].focus(); select(tabs[(i - 1 + tabs.length) % tabs.length]); }
+      });
+    });
+
+    document.querySelectorAll('[data-approve]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var item = document.getElementById(btn.getAttribute('data-approve'));
+        item.classList.add('approved');
+        btn.textContent = 'تم الإرسال';
+        btn.disabled = true;
+      });
+    });
+  })();
+</script>
