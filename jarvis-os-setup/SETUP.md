@@ -40,6 +40,13 @@ log for any misbehaviour).
 | `JARVIS_PERMISSION` | `bypass` | See below. |
 | `JARVIS_MCP` | `all` | `none` to isolate a connector that hangs a run. |
 
+Note on the key: it is set in the local `.env` but has never been validated —
+the setup container's network policy refused `CONNECT api.elevenlabs.io:443`,
+so no request ever reached ElevenLabs. A bad key surfaces as a 401 from
+`/api/speak`; a blocked network surfaces as a connection failure. Rotate the
+key before real use if it has ever been pasted into a chat window, and note
+that `.env` is gitignored in both repos, so it is never committed.
+
 ## The permission trade-off
 
 Default is `bypass`, which runs Claude with `--dangerously-skip-permissions`.
