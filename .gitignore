@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # Local Netlify folder
 .netlify
+
+# Local clone of github.com/Itsme23476/jarvis-os — a separate upstream repo
+# with its own .git. Kept out of this tree; see jarvis-os-setup/ for the
+# config that belongs to us.
+jarvis-os/
