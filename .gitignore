@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # Local Netlify folder
 .netlify
+
+# Local data store (used when Netlify Blobs is unavailable, e.g. plain `astro dev`)
+.data/

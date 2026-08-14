@@ -1,0 +1,26 @@
+---
+import '../styles/kartos.css';
+import '@fontsource-variable/inter/wght.css';
+
+interface Props {
+    title: string;
+    description?: string;
+}
+
+const { title, description = 'Kartos — integrated management for physiotherapy clinics, clinicians and HR.' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="UTF-8" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="generator" content={Astro.generator} />
+        <link rel="icon" href="/kartos-icon.svg" type="image/svg+xml" />
+    </head>
+    <body>
+        <slot />
+    </body>
+</html>

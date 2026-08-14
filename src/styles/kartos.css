@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+@theme {
+    --font-sans: 'Inter Variable', 'Segoe UI', Tahoma, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
+    --color-brand-50: #fdf3f4;
+    --color-brand-100: #fbe3e5;
+    --color-brand-200: #f6c9cd;
+    --color-brand-500: #b31b28;
+    --color-brand-600: #98111d;
+    --color-brand-700: #7d0d17;
+    --color-brand-900: #4a0009;
+
+    --color-gold-300: #ffd75e;
+    --color-gold-400: #f5c518;
+    --color-gold-500: #e0ac00;
+
+    --color-ink: #10131a;
+    --color-muted: #5b6472;
+    --color-line: #e3e7ee;
+    --color-surface: #ffffff;
+    --color-canvas: #f4f6fa;
+}
+
+@layer base {
+    html {
+        background: var(--color-canvas);
+        color: var(--color-ink);
+    }
+
+    body {
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    [dir='rtl'] {
+        text-align: right;
+    }
+
+    h1 {
+        @apply text-3xl font-bold tracking-tight sm:text-4xl;
+    }
+
+    h2 {
+        @apply text-xl font-bold sm:text-2xl;
+    }
+
+    h3 {
+        @apply text-lg font-semibold;
+    }
+}
+
+@layer components {
+    .k-card {
+        @apply rounded-xl border border-[var(--color-line)] bg-white shadow-sm;
+    }
+
+    .k-card-head {
+        @apply border-b border-[var(--color-line)] px-5 py-4;
+    }
+
+    .k-btn,
+    .k-btn-primary,
+    .k-btn-gold,
+    .k-btn-ghost,
+    .k-btn-green,
+    .k-btn-danger {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .k-btn-primary {
+        @apply bg-brand-500 text-white hover:bg-brand-600;
+    }
+
+    .k-btn-gold {
+        @apply bg-gold-400 text-brand-900 hover:bg-gold-500;
+    }
+
+    .k-btn-ghost {
+        @apply border border-[var(--color-line)] bg-white text-[var(--color-ink)] hover:bg-[var(--color-canvas)];
+    }
+
+    .k-btn-green {
+        @apply bg-emerald-700 text-white hover:bg-emerald-800;
+    }
+
+    .k-btn-danger {
+        @apply border border-rose-300 bg-white text-rose-700 hover:bg-rose-50;
+    }
+
+    .k-input {
+        @apply w-full rounded-lg border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+    }
+
+    .k-label {
+        @apply mb-1.5 block text-sm font-medium text-[var(--color-ink)];
+    }
+
+    .k-hint {
+        @apply text-xs text-[var(--color-muted)];
+    }
+
+    .k-chip {
+        @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+    }
+
+    .k-tab {
+        @apply cursor-pointer whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-[var(--color-muted)] transition-colors hover:text-brand-500;
+    }
+
+    .k-tab-active {
+        @apply border-brand-500 text-brand-500;
+    }
+
+    .k-table {
+        @apply w-full border-collapse text-sm;
+    }
+
+    .k-table th {
+        @apply bg-[var(--color-canvas)] px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)];
+    }
+
+    .k-table td {
+        @apply border-t border-[var(--color-line)] px-4 py-3 align-middle;
+    }
+
+    .k-scroll {
+        @apply overflow-x-auto;
+    }
+}
