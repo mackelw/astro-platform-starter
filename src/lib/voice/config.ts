@@ -83,7 +83,41 @@ export const voiceConfig = {
     /** Turns to keep before the oldest are dropped from the model's context. */
     get maxTurns() {
         return Number(env('VOICE_MAX_TURNS') ?? 40);
+    },
+
+    /**
+     * Which Claude model answers the phone. Haiku is the default because short
+     * spoken turns rarely need more, and its speed is what keeps the caller from
+     * waiting. Swap to a larger model when calls involve real negotiation.
+     */
+    get model() {
+        return env('VOICE_MODEL') ?? 'claude-haiku-4-5';
     }
 };
 
-export const MODEL = 'claude-opus-5';
+/**
+ * Request features that some models reject outright, so the same code can drive
+ * any configured model without a 400.
+ *
+ * - `effort` is not accepted by Haiku 4.5.
+ * - Server-side refusal fallbacks apply to the Opus tier on the Claude API.
+ *
+ * Unknown models fall back to the conservative combination — a typo or a model
+ * released after this table was written degrades rather than breaking calls.
+ */
+export interface ModelCapabilities {
+    supportsEffort: boolean;
+    supportsFallbacks: boolean;
+}
+
+const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
+    'claude-haiku-4-5': { supportsEffort: false, supportsFallbacks: false },
+    'claude-sonnet-5': { supportsEffort: true, supportsFallbacks: false },
+    'claude-sonnet-4-6': { supportsEffort: true, supportsFallbacks: false },
+    'claude-opus-4-8': { supportsEffort: true, supportsFallbacks: true },
+    'claude-opus-5': { supportsEffort: true, supportsFallbacks: true }
+};
+
+export function modelCapabilities(model: string): ModelCapabilities {
+    return MODEL_CAPABILITIES[model] ?? { supportsEffort: false, supportsFallbacks: false };
+}

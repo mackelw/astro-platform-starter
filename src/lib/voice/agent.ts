@@ -2,14 +2,17 @@
  * The conversational brain behind the phone agent.
  *
  * A phone call is a hard latency budget: Twilio abandons a webhook request after
- * 15 seconds and the caller hears dead air the whole time. So this runs at low
- * effort with a small output cap, never retries, and always returns something
- * speakable — a timeout or an API error becomes a spoken apology, not an exception
- * that drops the call.
+ * 15 seconds and the caller hears dead air the whole time. So this asks for the
+ * shallowest thinking the configured model offers, caps output, never retries, and
+ * always returns something speakable — a timeout or an API error becomes a spoken
+ * apology, not an exception that drops the call.
+ *
+ * The model is set by `VOICE_MODEL`; request features it would reject are omitted
+ * rather than hard-coded, so switching models needs no code change.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { MODEL, voiceConfig } from './config';
+import { modelCapabilities, voiceConfig } from './config';
 import type { Conversation, StoredMessage } from './store';
 
 /** Marker the model appends when the conversation is finished. Stripped before speaking. */
@@ -85,23 +88,33 @@ export interface AgentReply {
  */
 export async function generateReply(conversation: Conversation): Promise<AgentReply> {
     try {
-        const response = await client().beta.messages.create(
-            {
-                model: MODEL,
-                max_tokens: 2000,
-                // Phone calls are latency-bound. Low effort keeps thinking short;
-                // thinking stays on, which Opus 5 needs for reliable tool-free replies.
-                output_config: { effort: 'low' },
-                // Route safety refusals to a fallback model instead of dead air.
-                betas: ['server-side-fallback-2026-07-01'],
-                fallbacks: 'default',
-                // Caches the conversation prefix so later turns in the call are faster.
-                cache_control: { type: 'ephemeral' },
-                system: systemPrompt(conversation),
-                messages: conversation.messages
-            },
-            { timeout: voiceConfig.replyTimeoutMs, maxRetries: 0 }
-        );
+        const model = voiceConfig.model;
+        const capabilities = modelCapabilities(model);
+
+        const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
+            model,
+            max_tokens: 2000,
+            // Caches the conversation prefix so later turns in the call are faster.
+            cache_control: { type: 'ephemeral' },
+            system: systemPrompt(conversation),
+            messages: conversation.messages
+        };
+
+        // Phone calls are latency-bound, so ask for the shallowest thinking the
+        // model offers. Each turn is a short spoken exchange, not an analysis.
+        if (capabilities.supportsEffort) {
+            params.output_config = { effort: 'low' };
+        }
+        // Route a safety refusal to a fallback model instead of dead air.
+        if (capabilities.supportsFallbacks) {
+            params.betas = ['server-side-fallback-2026-07-01'];
+            params.fallbacks = 'default';
+        }
+
+        const response = await client().beta.messages.create(params, {
+            timeout: voiceConfig.replyTimeoutMs,
+            maxRetries: 0
+        });
 
         if (response.stop_reason === 'refusal') {
             return {

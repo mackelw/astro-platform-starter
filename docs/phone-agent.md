@@ -99,9 +99,10 @@ signed. `VOICE_VALIDATE_SIGNATURE=false` bypasses validation entirely for offlin
 ## Design notes worth knowing
 
 **The 15-second wall.** Twilio abandons a webhook request after 15 seconds, and the caller hears
-silence for the whole wait. The Claude call therefore runs at `effort: "low"` with retries off and
-a 9-second timeout; a timeout becomes a spoken "sorry, could you repeat that?" instead of a
-dropped call. If you raise `VOICE_REPLY_TIMEOUT_MS`, keep it comfortably under 15000.
+silence for the whole wait. The Claude call therefore asks for the shallowest thinking the model
+offers, runs with retries off and a 9-second timeout; a timeout becomes a spoken "sorry, could you
+repeat that?" instead of a dropped call. If you raise `VOICE_REPLY_TIMEOUT_MS`, keep it
+comfortably under 15000. The single biggest lever on this is the model — see below.
 
 **Hanging up.** The agent ends a call by finishing its last message with an `[END_CALL]` marker,
 which is stripped before the text is spoken. This is a marker rather than a tool call because a
@@ -114,6 +115,30 @@ them; keep that instruction if you replace the prompt via `VOICE_SYSTEM_PROMPT`.
 **Cost.** Every turn is a Twilio voice minute plus a Claude request carrying the whole transcript
 so far. Prompt caching is on, so later turns in a call are cheaper than the token counts suggest,
 but a long call is not free. `VOICE_MAX_TURNS` caps how much transcript is replayed.
+
+## Choosing a model
+
+`VOICE_MODEL` sets which model answers, defaulting to `claude-haiku-4-5`. Switching models needs
+no code change: features a model would reject are omitted rather than hard-coded, and an
+unrecognised model ID degrades to the conservative request shape instead of failing the call.
+
+Haiku is the default because a phone turn is a short spoken exchange, not an analysis — and
+because latency here is a feature, not just a cost. A larger model spends more tokens _and_ more
+seconds, and those seconds are silence the caller is sitting through.
+
+For a rough sense of scale on a three-minute call (about ten turns, prompt caching on), the
+LLM-side cost differs by more than an order of magnitude between Haiku and a thinking Opus-tier
+model. Twilio's per-minute, speech-recognition and neural-voice charges are separate, vary by
+country, and are often the larger half of the bill — check Twilio's pricing page for your
+destinations rather than assuming the model dominates.
+
+Reach for a larger model when calls involve genuine negotiation, multi-step reasoning, or
+judgement calls the caller would notice getting wrong. Measure with real calls before deciding:
+`VOICE_MODEL` exists so you can compare without touching code.
+
+The cheapest turn is the one that never reaches a model at all. If a handful of intents dominate
+your traffic — opening hours, address, order status — answering those from static TwiML and
+falling through to the agent for everything else saves more than any model choice.
 
 ## Security
 

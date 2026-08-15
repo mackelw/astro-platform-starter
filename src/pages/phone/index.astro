@@ -4,6 +4,7 @@ import Markdown from '../../components/Markdown.astro';
 import ContextAlert from '../../components/ContextAlert.astro';
 import CallLauncher from './_components/CallLauncher.tsx';
 import { listRecentCalls, type Conversation } from '../../lib/voice/store';
+import { voiceConfig } from '../../lib/voice/config';
 
 export const prerender = false;
 
@@ -54,6 +55,9 @@ const callRows = recentCalls.map((call: Conversation) => ({
     <Markdown content={explainer} class="mb-12" />
 
     <h2 class="mb-6">Place a call</h2>
+    <p class="mb-6 opacity-70">
+        Answering with <code>{voiceConfig.model}</code>. Change it with the <code>VOICE_MODEL</code> environment variable.
+    </p>
     <CallLauncher client:load />
 
     <h2 class="mt-16 mb-6">Recent calls</h2>
