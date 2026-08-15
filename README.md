@@ -4,6 +4,10 @@
 
 A modern starter based on Astro.js, Tailwind, and [Netlify Core Primitives](https://docs.netlify.com/core/overview/#develop) (Edge Functions, Image CDN, Blob Store).
 
+## Phone Agent
+
+This site includes a voice agent that answers and places real phone calls, built on Twilio Voice webhooks and the Claude API. Visit `/phone` once it's configured, and see [docs/phone-agent.md](docs/phone-agent.md) for setup.
+
 ## Astro Commands
 
 All commands are run from the root of the project, from a terminal:

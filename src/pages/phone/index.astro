@@ -1,0 +1,75 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Markdown from '../../components/Markdown.astro';
+import ContextAlert from '../../components/ContextAlert.astro';
+import CallLauncher from './_components/CallLauncher.tsx';
+import { listRecentCalls, type Conversation } from '../../lib/voice/store';
+
+export const prerender = false;
+
+const explainer = `
+A phone agent built on [Twilio Voice](https://www.twilio.com/docs/voice) webhooks and the Claude API. Twilio transcribes
+the caller's speech, Claude writes the reply, and Twilio speaks it back — with each call's transcript held in
+[Netlify Blobs](https://docs.netlify.com/blobs/overview/) between turns.
+
+It works in both directions: it **answers** calls to your Twilio number, and it **places** calls when you give it a number
+and a reason to call. See \`docs/phone-agent.md\` for the setup steps.
+`;
+
+const missingEnv = ['ANTHROPIC_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER', 'VOICE_API_TOKEN'].filter(
+    (name) => !process.env[name]
+);
+
+const missingEnvList = missingEnv.map((name) => '`' + name + '`').join(', ');
+const missingEnvText = `
+The phone agent is not configured yet. Missing environment variables: ${missingEnvList}.
+`;
+
+let recentCalls: Conversation[] = [];
+try {
+    recentCalls = await listRecentCalls(10);
+} catch {
+    // Blob store is unavailable outside a Netlify context — the rest of the page still renders.
+}
+
+const callRows = recentCalls.map((call: Conversation) => ({
+    key: call.callSid,
+    label: call.direction === 'inbound' ? '← Incoming' : '→ Outgoing',
+    counterpart: call.direction === 'inbound' ? call.from : call.to,
+    state: call.finalStatus ?? (call.endedAt ? 'ended' : 'in progress'),
+    turns: call.messages.length
+}));
+---
+
+<Layout title="Phone Agent">
+    <ContextAlert class="mb-8" />
+    {
+        missingEnv.length > 0 && (
+            <div class="mb-8">
+                <Markdown content={missingEnvText} />
+            </div>
+        )
+    }
+    <h1 class="mb-10">Phone Agent</h1>
+    <Markdown content={explainer} class="mb-12" />
+
+    <h2 class="mb-6">Place a call</h2>
+    <CallLauncher client:load />
+
+    <h2 class="mt-16 mb-6">Recent calls</h2>
+    {!callRows.length && <p class="opacity-70">No calls yet.</p>}
+    {
+        !!callRows.length && (
+            <ul class="flex flex-col gap-3">
+                {callRows.map((row) => (
+                    <li class="flex flex-wrap p-4 rounded-lg gap-x-4 gap-y-1 bg-white/5">
+                        <span class="font-semibold">{row.label}</span>
+                        <span dir="ltr">{row.counterpart}</span>
+                        <span class="opacity-70">{row.turns} turns</span>
+                        <span class="opacity-70">{row.state}</span>
+                    </li>
+                ))}
+            </ul>
+        )
+    }
+</Layout>
