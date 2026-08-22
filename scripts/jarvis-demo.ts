@@ -1,14 +1,36 @@
 /**
- * A walk-through of the phase 1 path: register a patient, run an assessment, sign it, and prove
- * the guard rails hold. Run with `npm run jarvis:demo`.
+ * A walk-through of the whole pipeline: assessment → plan → programme → follow-up, plus the
+ * content module running alongside it. Every guard rail in the system is exercised on the way.
+ * Run with `npm run jarvis:demo`.
  */
 import { createInMemoryStore } from '../src/jarvis/db/store';
-import { createJarvis, PHASE_1_GRANTS } from '../src/jarvis/orchestrator';
+import { createJarvis, ALL_MODULE_GRANTS } from '../src/jarvis/orchestrator';
 import { signAssessment } from '../src/jarvis/agents/assessment';
-import type { AssessmentInput, AssessmentRecord, PatientRecord } from '../src/jarvis/types';
+import { acceptPlan } from '../src/jarvis/agents/treatmentPlanning';
+import { ingestFollowUpReply, optOut } from '../src/jarvis/agents/followUp';
+import { createRecordingMessagingAdapter } from '../src/jarvis/adapters';
+import type {
+    AssessmentInput,
+    AssessmentRecord,
+    ContentDraft,
+    HomeExerciseProgramme,
+    OutboundMessage,
+    PatientRecord,
+    TreatmentPlan
+} from '../src/jarvis/types';
 
 const store = createInMemoryStore();
-const jarvis = createJarvis({ store, grants: PHASE_1_GRANTS });
+const messaging = createRecordingMessagingAdapter();
+const jarvis = createJarvis({ store, grants: ALL_MODULE_GRANTS, messaging });
+
+function heading(text: string) {
+    console.log(`\n── ${text} ${'─'.repeat(Math.max(0, 64 - text.length))}`);
+}
+
+function expect<T extends { status: string }>(outcome: T, status: T['status']): T {
+    if (outcome.status !== status) throw new Error(`expected ${status}, got ${outcome.status}: ${JSON.stringify(outcome)}`);
+    return outcome;
+}
 
 const patient: PatientRecord = {
     id: 'pat_001',
@@ -44,48 +66,117 @@ const baseInput: AssessmentInput = {
     ]
 };
 
-function heading(text: string) {
-    console.log(`\n── ${text} ${'─'.repeat(Math.max(0, 60 - text.length))}`);
-}
+heading('Agent 1 — assessment');
+const assessed = expect(await jarvis.dispatch<AssessmentRecord>('assessment', baseInput), 'ok') as { status: 'ok'; data: AssessmentRecord };
+console.log(assessed.data.findings.functionalSummary);
+console.log('Status:', assessed.data.status, '· irritability:', assessed.data.findings.irritability);
 
-heading('1. Clean assessment');
-const clean = await jarvis.dispatch<AssessmentRecord>('assessment', baseInput);
-if (clean.status !== 'ok') throw new Error(`expected ok, got ${clean.status}`);
-console.log(clean.data.findings.functionalSummary);
-console.log('Problem list:', clean.data.findings.problemList);
-console.log('Status:', clean.data.status);
+heading('Planning refuses to read an unsigned assessment');
+const premature = await jarvis.dispatch('treatment-planning', { assessmentId: assessed.data.id, clinicianId: 'clin_001' });
+console.log('Outcome:', premature.status, premature.status === 'rejected' ? premature.errors : '');
 
-heading('2. Clinician signs — this is what unlocks Agent 2');
-const signed = await signAssessment(jarvis.context('assessment'), clean.data.id, 'clin_001');
+heading('Clinician signs');
+const signed = await signAssessment(jarvis.context('assessment'), assessed.data.id, 'clin_001');
 console.log('Status:', signed.status, '· signed by', signed.signedBy);
 
-heading('3. Red flag escalates and halts the pipeline');
-const flagged = await jarvis.dispatch<AssessmentRecord>('assessment', {
-    ...baseInput,
-    history: { ...baseInput.history, screening: { ...baseInput.history.screening, 'unexplained-weight-loss': true } }
+heading('Agent 2 — treatment plan, evidence brokered from Agent 3');
+const planned = expect(await jarvis.dispatch<TreatmentPlan>('treatment-planning', { assessmentId: signed.id, clinicianId: 'clin_001' }), 'ok') as {
+    status: 'ok';
+    data: TreatmentPlan;
+};
+for (const intervention of planned.data.interventions) {
+    console.log(`• [${intervention.family}] ${intervention.title} — ${intervention.dosage}`);
+    for (const citation of intervention.citations) console.log(`    ↳ ${citation.title} (${citation.sourceType}, ${citation.strength})`);
+}
+console.log(
+    'Goals:',
+    planned.data.goals.map((goal) => `${goal.horizon}: ${goal.statement}`)
+);
+console.log('Precautions:', planned.data.precautions);
+console.log('Review in', planned.data.reviewInDays, 'days · unsupported candidates:', planned.data.unsupported.length);
+
+heading('Agent 3 — refuses patient data outright');
+const leaked = await jarvis.dispatch('knowledge-base', { question: 'What helps shoulder pain?', patientId: 'pat_001' });
+console.log('Outcome:', leaked.status, leaked.status === 'rejected' ? leaked.errors : '');
+
+heading('Programmes need an accepted plan');
+const tooEarly = await jarvis.dispatch('exercise-education', { planId: planned.data.id });
+console.log('Outcome:', tooEarly.status, tooEarly.status === 'rejected' ? tooEarly.errors : '');
+
+heading('Clinician accepts the plan');
+const accepted = await acceptPlan(jarvis.context('treatment-planning'), planned.data.id, 'clin_001');
+console.log('Status:', accepted.status, '· accepted by', accepted.acceptedBy);
+
+heading('Agent 4 — home exercise programme');
+const programme = expect(await jarvis.dispatch<HomeExerciseProgramme>('exercise-education', { planId: accepted.id }), 'ok') as {
+    status: 'ok';
+    data: HomeExerciseProgramme;
+};
+for (const exercise of programme.data.exercises) {
+    const dose = exercise.durationMinutes
+        ? `${exercise.durationMinutes} min`
+        : `${exercise.sets}×${exercise.reps}${exercise.holdSeconds ? `, ${exercise.holdSeconds}s hold` : ''}`;
+    console.log(`• ${exercise.name} [${exercise.source}] — ${dose}, ${exercise.frequencyPerWeek}×/week`);
+}
+console.log('Difficulty cap:', programme.data.difficultyCap, '· education topics:', programme.data.education.length);
+console.log('Coverage gaps:', programme.data.coverageGaps.length ? programme.data.coverageGaps : 'none');
+
+heading('Agent 5 — check-in waits for a human');
+const checkIn = expect(await jarvis.dispatch<OutboundMessage>('follow-up', { programmeId: programme.data.id, checkpoint: 'week-1' }), 'needs-approval') as {
+    status: 'needs-approval';
+    approvalId: string;
+    draft: OutboundMessage;
+};
+console.log('Template:', checkIn.draft.templateId, '· scheduled:', checkIn.draft.scheduledFor);
+console.log('Body:', checkIn.draft.body);
+console.log('Pending approvals:', (await jarvis.pendingApprovals()).length, '· messages actually sent so far:', messaging.sent.length);
+
+const released = await jarvis.decideApproval(checkIn.approvalId, { approved: true, decidedBy: 'clin_001' });
+console.log('Approved by', released.approval.decidedBy, '· provider id:', (released.delivered as OutboundMessage).providerId);
+console.log('Messages sent:', messaging.sent.length);
+
+heading('A worrying reply stops the automation');
+const outcome = await ingestFollowUpReply(jarvis.context('follow-up'), {
+    patientId: patient.id,
+    programmeId: programme.data.id,
+    checkpoint: 'week-1',
+    painScore: 8,
+    adherence: 'partial',
+    freeText: 'Pain is worse this week and my hand feels numb'
 });
-console.log('Outcome:', flagged.status);
-if (flagged.status === 'escalated')
-    console.log(
-        'Flags:',
-        flagged.redFlags.map((flag) => `${flag.label} (${flag.urgency})`)
-    );
+console.log('Escalated:', outcome.escalated, '· concerns:', outcome.concerns);
 
-heading('4. Missing screening is rejected at the boundary');
-const { screening, ...historyWithoutScreening } = baseInput.history;
-const invalid = await jarvis.dispatch('assessment', { ...baseInput, history: historyWithoutScreening });
-console.log('Outcome:', invalid.status, invalid.status === 'rejected' ? invalid.errors : '');
+const afterEscalation = expect(await jarvis.dispatch<OutboundMessage>('follow-up', { programmeId: programme.data.id, checkpoint: 'week-2' }), 'ok') as {
+    status: 'ok';
+    data: OutboundMessage;
+};
+console.log('Next check-in:', afterEscalation.data.status, '—', afterEscalation.data.suppressedReason);
 
-heading('5. Unbuilt module fails with a useful message');
-const planned = await jarvis.dispatch('treatment-planning', {});
-console.log('Outcome:', planned.status, planned.status === 'rejected' ? planned.errors : '');
+heading('STOP means stop');
+await optOut(jarvis.context('follow-up'), patient.id);
+const afterOptOut = expect(await jarvis.dispatch<OutboundMessage>('follow-up', { programmeId: programme.data.id, checkpoint: 'week-6' }), 'ok') as {
+    status: 'ok';
+    data: OutboundMessage;
+};
+console.log('Next check-in:', afterOptOut.data.status, '—', afterOptOut.data.suppressedReason);
 
-heading('6. Ungranted scope is refused');
-const locked = createJarvis({ store, grants: { assessment: ['phi:read'] } });
-const denied = await locked.dispatch('assessment', baseInput);
-console.log('Outcome:', denied.status, denied.status === 'rejected' ? denied.errors : '');
+heading('Agent 6 — content, off-list topics refused');
+const offList = await jarvis.dispatch('marketing', { topic: 'the one exercise that cures back pain', channel: 'instagram', audience: 'local runners' });
+console.log('Outcome:', offList.status, offList.status === 'rejected' ? offList.errors[0].slice(0, 80) + '…' : '');
+
+const draft = expect(
+    await jarvis.dispatch<ContentDraft>('marketing', {
+        topic: 'managing an acute flare-up',
+        channel: 'instagram',
+        audience: 'people mid-flare who are wondering whether to rest',
+        callToAction: 'Book an assessment if it is not settling.'
+    }),
+    'needs-approval'
+) as { status: 'needs-approval'; approvalId: string; draft: ContentDraft };
+console.log(`${draft.draft.headline}\n${draft.draft.body}\n${draft.draft.hashtags.join(' ')}\n— ${draft.draft.disclaimer}`);
+
+const publishDecision = await jarvis.decideApproval(draft.approvalId, { approved: false, decidedBy: 'clin_001', note: 'reword the opening' });
+console.log('Decision:', publishDecision.approval.status, '· published:', (await store.content.get(draft.draft.id))?.status);
 
 heading('Audit trail');
-for (const event of await jarvis.auditTrail()) {
-    console.log(`${event.agentId} · ${event.action} ·`, event.detail);
-}
+for (const event of await jarvis.auditTrail()) console.log(`${event.agentId.padEnd(19)} ${event.action.padEnd(24)}`, event.detail);

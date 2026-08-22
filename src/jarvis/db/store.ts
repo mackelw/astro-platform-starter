@@ -1,22 +1,40 @@
-import type { ApprovalRequest, AssessmentRecord, AuditEvent, Collection, JarvisStore, PatientRecord } from '../types';
+import type {
+    ApprovalRequest,
+    AssessmentRecord,
+    AuditEvent,
+    Collection,
+    ContentDraft,
+    EvidenceQueryRecord,
+    HomeExerciseProgramme,
+    JarvisStore,
+    OutboundMessage,
+    OutcomeMeasure,
+    PatientRecord,
+    TreatmentPlan
+} from '../types';
 
 /**
- * The assessment database.
+ * The clinical database.
  *
- * Phase 1 ships an in-memory implementation so the main brain and Agent 1 can be developed and
- * tested end to end without standing up infrastructure. The `JarvisStore` interface is the seam:
- * a Postgres or Netlify Blobs adapter implements the same four collections and nothing upstream
- * changes.
+ * The in-memory implementation lets the whole pipeline be developed and tested without standing up
+ * infrastructure. The `JarvisStore` interface is the seam: a Postgres or Netlify Blobs adapter
+ * implements the same collections and nothing upstream changes.
  *
  * Key layout expected of any persistent adapter:
  *
  *   patients/{patientId}
  *   assessments/{patientId}/{assessmentId}
+ *   plans/{patientId}/{planId}
+ *   programmes/{patientId}/{programmeId}
+ *   messages/{patientId}/{messageId}
+ *   outcomes/{patientId}/{outcomeId}
+ *   content/{draftId}                     — no patient dimension; Agent 6 never touches one
+ *   evidence-queries/{queryId}            — de-identified questions and what came back
  *   approvals/{approvalId}
  *   audit/{yyyy-mm-dd}/{taskId}
  *
- * Assessments are keyed under the patient so that "everything for this patient" is a prefix scan
- * and a deletion request is a prefix delete.
+ * Clinical records are keyed under the patient so that "everything for this patient" is a prefix
+ * scan and an erasure request is a prefix delete.
  */
 
 function matches<T extends Record<string, unknown>>(record: T, filter?: Partial<Record<string, string>>): boolean {
@@ -45,6 +63,12 @@ export function createInMemoryStore(): JarvisStore {
     return {
         patients: createCollection<PatientRecord>(),
         assessments: createCollection<AssessmentRecord>(),
+        plans: createCollection<TreatmentPlan>(),
+        programmes: createCollection<HomeExerciseProgramme>(),
+        messages: createCollection<OutboundMessage>(),
+        outcomes: createCollection<OutcomeMeasure>(),
+        content: createCollection<ContentDraft>(),
+        evidenceQueries: createCollection<EvidenceQueryRecord>(),
         approvals: createCollection<ApprovalRequest>(),
         audit: {
             async append(event) {

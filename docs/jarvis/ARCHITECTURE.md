@@ -67,7 +67,13 @@ scope at all, so "the marketing agent read a patient file" is not a mistake it i
    becomes a pending approval, and the approval records who decided and when.
 6. **Minimum data crosses boundaries.** The knowledge base receives a clinical question, never a
    patient id. The marketing module receives topics, never records.
-7. **Everything is audited.** Every dispatch, denial, escalation and approval appends an event with
+7. **Capabilities are brokered, never imported.** Planning needs evidence, so the orchestrator runs
+   the knowledge base on its behalf under the same task id — and only because planning holds
+   `evidence:read`. The two modules never reference each other.
+8. **Delivery is the orchestrator's act, not the module's.** Agents 5 and 6 can only produce a
+   draft. The send and the publish happen in `deliver()`, which nothing but an approved decision
+   can reach.
+9. **Everything is audited.** Every dispatch, denial, escalation and approval appends an event with
    ids and outcomes — never free-text clinical content.
 
 ## Data flow, one episode of care
@@ -80,8 +86,11 @@ scope at all, so "the marketing agent read a patient file" is not a mistake it i
    question, and drafts a plan with citations. Clinician accepts.
 5. **Agent 4** turns the accepted plan into a home programme, preferring the clinic's own videos and
    recording which source each exercise came from. Starting dose is capped by the irritability grade.
-6. **Agent 5** runs the check-in schedule for consenting patients, captures outcome measures back
-   into the record, and routes any worsening or red-flag reply to a human immediately.
+6. **Agent 5** drafts the scheduled check-in from a provider-approved template — it has no way to
+   compose free text — and it reaches the patient only after a named human approves it. Replies come
+   back as outcome measures; a worsening or red-flag reply escalates and suspends every remaining
+   check-in for that programme. `STOP` withdraws consent on the patient record, which suppresses
+   every later check-in by itself.
 7. **Agent 6** runs alongside, off the clinical data entirely, drafting content for approval.
 
 ## The assessment database
@@ -102,27 +111,76 @@ not a production store, and the persistence decision is listed as open below.
 
 ## Build order
 
-**Phase 1 — main brain + Agent 1 + database.** ✅ in this branch. Orchestrator with scope
-enforcement, approval queue and audit trail; assessment module with red-flag screening, ROM
-analysis, irritability grading and clinician sign-off; store interface with an in-memory adapter.
-_Exit criteria:_ a real clinic assessment can be entered, screened and signed, and the audit trail
+All five phases are implemented. What each one had to prove:
+
+**Phase 1 — main brain + Agent 1 + database.** ✅ Orchestrator with scope enforcement, approval
+queue and audit trail; assessment with red-flag screening, ROM analysis, irritability grading and
+clinician sign-off; store interface with an in-memory adapter.
+_Exit criteria met:_ an assessment can be entered, screened and signed, and the audit trail
 reconstructs it.
 
-**Phase 2 — Agents 2 and 3, together.** Planning is worthless without evidence and the knowledge
-base has no consumer without planning; they ship as one increment.
-_Exit criteria:_ every recommendation in a generated plan carries a citation a clinician can open.
+**Phase 2 — Agents 2 and 3, together.** ✅ Planning is worthless without evidence and the knowledge
+base has no consumer without planning, so they shipped as one increment. Region and intervention
+family are hard filters on retrieval, not ranking hints — a knee guideline must never surface in a
+shoulder plan on source strength alone.
+_Exit criteria met:_ every intervention in a plan carries at least one citation; a candidate the
+knowledge base cannot support is dropped to `unsupported` rather than shipped uncited.
 
-**Phase 3 — Agent 4.** Home exercise programmes over the clinic's own library.
-_Exit criteria:_ programmes generate from accepted plans, and library coverage gaps are reported
-rather than silently substituted.
+**Phase 3 — Agent 4.** ✅ Home exercise programmes over the clinic's own library, dose capped by
+irritability, at most four exercises because short programmes get done and long ones do not.
+_Exit criteria met:_ programmes issue from accepted plans only, and anything the clinic library
+cannot serve is reported as a coverage gap — including where the licensed catalogue filled in.
 
-**Phase 4 — Agent 5.** Follow-up messaging. The first module that talks to patients, so it ships
-behind the approval queue and a consent check.
-_Exit criteria:_ a check-in sequence runs end to end on staff test numbers, and an adverse reply
-demonstrably suspends the sequence and pages a human.
+**Phase 4 — Agent 5.** ✅ Templated WhatsApp check-ins, consent-checked, held for approval, sent by
+the orchestrator rather than the module. Replies become outcome measures; concerning ones escalate
+and suspend the sequence.
+_Exit criteria met:_ nothing sends without an approval, and an adverse reply demonstrably suspends
+every remaining check-in.
 
-**Phase 5 — Agent 6.** Marketing content, approval-gated.
-_Exit criteria:_ nothing publishes without a recorded approval, verified by trying.
+**Phase 5 — Agent 6.** ✅ Content drafting from an approved topic list, with prohibited-claim and
+identifier checks at the boundary.
+_Exit criteria met:_ nothing publishes without a recorded approval, verified by rejecting one.
+
+## Swappable seams
+
+Five things in this branch are development stand-ins with a real interface behind them. Each is one
+implementation away from production:
+
+| Seam                | Today                           | Replace with                                     |
+| ------------------- | ------------------------------- | ------------------------------------------------ |
+| `JarvisStore`       | in-memory collections           | Postgres or Netlify Blobs adapter                |
+| Evidence corpus     | **placeholder entries only**    | the clinic's licensed guidelines and reviews     |
+| Exercise library    | ten sample assets               | the clinic's filmed library + licensed catalogue |
+| `MessagingAdapter`  | records what would be sent      | WhatsApp Business API client                     |
+| `PublishingAdapter` | records what would be published | the clinic's publishing client                   |
+
+The evidence corpus is the one to watch. Its entries carry `isPlaceholder: true` and name no real
+journal, body or author, because a plausible-looking fabricated citation in a clinical system is
+worse than no citation at all. Any plan built on placeholder evidence says so in its precautions,
+and the clinician acceptance gate is what stops it reaching a patient.
+
+## Where a model plugs in
+
+Every module here is deterministic — rules, tables and retrieval, no model call anywhere in the
+system. That is deliberate for the clinical path: a rule that grades irritability the same way twice
+is auditable, testable, and cannot invent a red flag. It also means the whole pipeline runs with no
+vendor, no key and no patient data leaving the process.
+
+Three places would genuinely benefit from a model, and each is a contained swap behind an interface
+that already exists:
+
+- **Intake narrative → `AssessmentInput`** (in front of Agent 1). Turning a referral letter or a
+  free-text intake form into structured history. The structured output still goes through the same
+  `parse` boundary, so a model mistake becomes a validation error rather than a record.
+- **Retrieval and summarising in Agent 3.** Semantic search over the real corpus instead of keyword
+  scoring, plus a plain-language summary of what a source says. The citation itself must stay
+  retrieved, never generated.
+- **Drafting in Agent 6.** The content module currently assembles from a template, which is why its
+  output reads like a template. This is the one place a model can write freely — it holds no patient
+  data and everything it produces is approval-gated.
+
+The clinical reasoning in Agent 2 and the dosing in Agent 4 should stay rules for now. When they do
+not, the same rule applies as everywhere else: a model proposes, the clinician signs.
 
 ## Safety, consent and compliance
 
@@ -142,28 +200,42 @@ _Exit criteria:_ nothing publishes without a recorded approval, verified by tryi
 
 ## Open decisions
 
-These need your call before the phases they block:
+The code is written; these are what stand between it and a real clinic. Each maps to a seam above.
 
-1. **Persistence** — Postgres (relational, easy audit, easy erasure) versus a document store. Blocks
-   production use of phase 1.
-2. **Jurisdiction** — which health-records regime applies, which sets retention and residency.
-3. **WhatsApp provider** — Business API through which BSP. Blocks phase 4.
-4. **Video library** — what exists today, and what the fallback catalogue is when it has gaps.
-   Blocks phase 3.
-5. **Evidence sources** — which guidelines and databases Agent 3 is allowed to cite. Blocks phase 2.
+1. **Evidence sources** — which guidelines and databases Agent 3 may cite. Until this lands, every
+   plan is placeholder-backed and the precaution says so. Highest priority.
+2. **Persistence** — Postgres (relational, easy audit, easy erasure) versus a document store.
+3. **Jurisdiction** — which health-records regime applies, which sets retention and residency.
+4. **WhatsApp provider** — Business API through which BSP, and which templates get pre-approved.
+   The template ids in Agent 5 are placeholders until then.
+5. **Video library** — what exists today, so the coverage-gap report reflects the real catalogue.
+6. **Clinical review of the defaults** — the red-flag list, normative ROM table, irritability
+   heuristic, dosing table and concern phrases are all defensible starting points, not clinic
+   policy. A physiotherapist should sign each one off.
 
 ## What is in this branch
 
 ```
 src/jarvis/
-  types.ts                      shared domain + agent contracts
-  orchestrator.ts               the main brain
-  registry.ts                   built modules + declared-but-unbuilt modules
-  agents/assessment.ts          Agent 1
-  agents/clinicalReference.ts   red-flag definitions + normative ROM (clinic-configurable)
-  db/store.ts                   store interface + in-memory adapter
-scripts/jarvis-demo.ts          runnable walk-through of the phase 1 path
-docs/jarvis/ARCHITECTURE.md     this document
+  types.ts                       shared domain + agent contracts
+  orchestrator.ts                the main brain: routing, scopes, brokering, approvals, delivery
+  registry.ts                    the module list
+  validation.ts                  boundary validation shared by every module
+  adapters.ts                    development messaging + publishing adapters
+  agents/assessment.ts           Agent 1
+  agents/treatmentPlanning.ts    Agent 2
+  agents/knowledgeBase.ts        Agent 3
+  agents/exerciseEducation.ts    Agent 4
+  agents/followUp.ts             Agent 5
+  agents/marketing.ts            Agent 6
+  agents/clinicalReference.ts    red flags, normative ROM, region inference (clinic-configurable)
+  agents/evidenceCorpus.ts       placeholder evidence — replace before clinical use
+  agents/exerciseLibrary.ts      sample assets + the library service
+  db/store.ts                    store interface + in-memory adapter
+scripts/jarvis-demo.ts           runnable walk-through of the whole pipeline
+docs/jarvis/ARCHITECTURE.md      this document
 ```
 
-Run the walk-through with `npm run jarvis:demo`.
+Run the walk-through with `npm run jarvis:demo`. It goes assessment → sign → plan → accept →
+programme → check-in → approval → send → escalating reply → opt-out → content draft → rejection,
+and prints the audit trail for the lot.

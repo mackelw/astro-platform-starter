@@ -1,18 +1,35 @@
-import { InputValidationError } from './agents/assessment';
-import { MODULES, PLANNED_MODULES } from './registry';
-import type { AgentContext, AgentId, AgentOutcome, ApprovalRequest, JarvisStore, Scope } from './types';
+import { createExerciseLibrary } from './agents/exerciseLibrary';
+import { createRecordingMessagingAdapter, createRecordingPublishingAdapter } from './adapters';
+import { MODULES } from './registry';
+import { PLANNED_MODULES } from './registry';
+import { InputValidationError } from './validation';
+import type {
+    AgentContext,
+    AgentId,
+    AgentOutcome,
+    AgentServices,
+    ApprovalRequest,
+    EvidenceService,
+    ExerciseLibraryService,
+    JarvisStore,
+    MessagingAdapter,
+    PublishingAdapter,
+    Scope
+} from './types';
 
 /**
  * The main brain.
  *
- * It is the only component that knows the module list. Agents do not call each other: work enters
+ * It is the only component that knows the module list. Modules do not call each other: work enters
  * here, the orchestrator checks scopes, runs one module, records what happened, and routes the
- * outcome. Three rules hold for every dispatch:
+ * outcome. Four rules hold for every dispatch:
  *
  *   1. A module runs only with scopes the deployment has granted it.
  *   2. Input is validated at the module boundary before any side effect.
- *   3. Anything leaving the system — a patient message, a published post — stops at an approval
- *      queue and waits for a named human.
+ *   3. A module reaches another module's capability only through a brokered service, and only if
+ *      its own scopes entitle it to that capability.
+ *   4. Anything leaving the system — a patient message, a published post — stops at an approval
+ *      queue and is delivered by the orchestrator only after a named human approves it.
  */
 
 export interface JarvisOptions {
@@ -21,12 +38,29 @@ export interface JarvisOptions {
     grants: Partial<Record<AgentId, readonly Scope[]>>;
     now?: () => Date;
     newId?: (prefix: string) => string;
+    /** Swap these for the clinic's real catalogue, WhatsApp client and publishing client. */
+    library?: ExerciseLibraryService;
+    messaging?: MessagingAdapter;
+    publishing?: PublishingAdapter;
+}
+
+export interface ApprovalDecision {
+    approved: boolean;
+    decidedBy: string;
+    note?: string;
+}
+
+export interface ApprovalOutcome {
+    approval: ApprovalRequest;
+    /** What the module actually did once approved — the sent message, the published draft. */
+    delivered?: unknown;
+    deliveryError?: string;
 }
 
 export interface Jarvis {
     dispatch<T>(agentId: AgentId, input: unknown): Promise<AgentOutcome<T>>;
     pendingApprovals(): Promise<ApprovalRequest[]>;
-    decideApproval(approvalId: string, decision: { approved: boolean; decidedBy: string; note?: string }): Promise<ApprovalRequest>;
+    decideApproval(approvalId: string, decision: ApprovalDecision): Promise<ApprovalOutcome>;
     context(agentId: AgentId, taskId?: string): AgentContext;
     auditTrail(): Promise<Awaited<ReturnType<JarvisStore['audit']['all']>>>;
 }
@@ -39,6 +73,47 @@ export function createJarvis(options: JarvisOptions): Jarvis {
     const { store, grants } = options;
     const now = options.now ?? (() => new Date());
     const newId = options.newId ?? defaultIdFactory;
+    const library = options.library ?? createExerciseLibrary();
+    const messaging = options.messaging ?? createRecordingMessagingAdapter();
+    const publishing = options.publishing ?? createRecordingPublishingAdapter();
+
+    function granted(agentId: AgentId): readonly Scope[] {
+        return grants[agentId] ?? [];
+    }
+
+    function missingScopes(agentId: AgentId, required: readonly Scope[]): Scope[] {
+        return required.filter((scope) => !granted(agentId).includes(scope));
+    }
+
+    /**
+     * Planning needs evidence, but the two modules never meet. The orchestrator runs the knowledge
+     * base on the caller's behalf, under the caller's task id, and only for a caller holding
+     * `evidence:read` — and the knowledge base still has to hold its own grant to answer.
+     */
+    function brokerEvidence(taskId: string): EvidenceService {
+        return {
+            async query(query) {
+                const knowledgeBase = MODULES['knowledge-base'];
+                if (!knowledgeBase) throw new Error('knowledge base module is not registered');
+                if (missingScopes('knowledge-base', knowledgeBase.scopes).length)
+                    throw new Error('knowledge base is not granted evidence:read in this deployment');
+
+                const outcome = await knowledgeBase.run(knowledgeBase.parse(query), context('knowledge-base', taskId));
+                if (outcome.status !== 'ok') throw new Error(`evidence query failed: ${outcome.status}`);
+                return outcome.data;
+            }
+        };
+    }
+
+    function servicesFor(agentId: AgentId, taskId: string): AgentServices {
+        const scopes = granted(agentId);
+        return {
+            evidence: scopes.includes('evidence:read') && agentId !== 'knowledge-base' ? brokerEvidence(taskId) : undefined,
+            library: scopes.includes('library:read') ? library : undefined,
+            messaging: scopes.includes('messaging:send') ? messaging : undefined,
+            publishing: scopes.includes('publish:draft') ? publishing : undefined
+        };
+    }
 
     function context(agentId: AgentId, taskId = newId('task')): AgentContext {
         return {
@@ -46,15 +121,11 @@ export function createJarvis(options: JarvisOptions): Jarvis {
             now,
             newId,
             store,
+            services: servicesFor(agentId, taskId),
             audit(action, detail = {}) {
                 void store.audit.append({ at: now().toISOString(), taskId, agentId, action, detail });
             }
         };
-    }
-
-    function missingScopes(agentId: AgentId, required: readonly Scope[]): Scope[] {
-        const granted = grants[agentId] ?? [];
-        return required.filter((scope) => !granted.includes(scope));
     }
 
     return {
@@ -90,7 +161,7 @@ export function createJarvis(options: JarvisOptions): Jarvis {
             ctx.audit('dispatch.start', { agentId });
             const outcome = await module.run(parsed, ctx);
 
-            if (outcome.status === 'ok' && module.requiresApproval) {
+            if (outcome.status === 'ok' && module.requiresApproval && (module.needsApproval?.(outcome.data) ?? true)) {
                 const approval: ApprovalRequest = {
                     id: newId('apr'),
                     agentId,
@@ -125,8 +196,20 @@ export function createJarvis(options: JarvisOptions): Jarvis {
                 note: decision.note
             };
             await store.approvals.put(decided);
-            context(approval.agentId).audit('approval.decided', { approvalId, approved: decision.approved, decidedBy: decision.decidedBy });
-            return decided;
+
+            const ctx = context(approval.agentId);
+            ctx.audit('approval.decided', { approvalId, approved: decision.approved, decidedBy: decision.decidedBy });
+
+            const module = MODULES[approval.agentId];
+            if (!decision.approved || !module?.deliver) return { approval: decided };
+
+            try {
+                const delivered = await module.deliver(approval.payload, ctx);
+                return { approval: decided, delivered };
+            } catch (error) {
+                ctx.audit('delivery.failed', { approvalId, agentId: approval.agentId });
+                return { approval: decided, deliveryError: (error as Error).message };
+            }
         },
 
         async auditTrail() {
@@ -135,7 +218,16 @@ export function createJarvis(options: JarvisOptions): Jarvis {
     };
 }
 
-/** Scope grants for the phase 1 deployment: the assessment module and nothing else. */
+/** Grants for a phase 1 deployment: the assessment module and nothing else. */
 export const PHASE_1_GRANTS: JarvisOptions['grants'] = {
     assessment: ['phi:read', 'phi:write']
 };
+
+/**
+ * Grants every registered module exactly the scopes it declares. Convenient for development and
+ * for the demo; a real deployment should narrow it — staging, for instance, has no business
+ * holding `messaging:send`.
+ */
+export const ALL_MODULE_GRANTS: JarvisOptions['grants'] = Object.fromEntries(
+    Object.entries(MODULES).map(([agentId, module]) => [agentId, module.scopes])
+) as JarvisOptions['grants'];

@@ -143,6 +143,252 @@ export interface AssessmentRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Agent 3 — knowledge base
+// ---------------------------------------------------------------------------
+
+export type BodyRegion = Joint | 'general';
+
+export type InterventionFamily = 'exercise-therapy' | 'manual-therapy' | 'education' | 'load-management' | 'pain-modulation';
+
+export type EvidenceSourceType = 'clinical-guideline' | 'systematic-review' | 'randomised-trial' | 'clinic-protocol';
+
+export type EvidenceStrength = 'strong' | 'moderate' | 'limited';
+
+export interface EvidenceCitation {
+    id: string;
+    title: string;
+    /** Publisher or body responsible for the source. */
+    source: string;
+    year: number;
+    sourceType: EvidenceSourceType;
+    strength: EvidenceStrength;
+    /** One-line statement of what the source supports. */
+    summary: string;
+    url?: string;
+    region: BodyRegion;
+    families: InterventionFamily[];
+    keywords: string[];
+    /**
+     * True for seed entries shipped with the repository. A placeholder is a stand-in for a real
+     * source the clinic has licensed, and any plan built on one is marked accordingly.
+     */
+    isPlaceholder: boolean;
+}
+
+export interface EvidenceQuery {
+    /** De-identified clinical question. Patient identifiers are rejected at the boundary. */
+    question: string;
+    region?: BodyRegion;
+    family?: InterventionFamily;
+    keywords?: string[];
+    limit?: number;
+}
+
+export interface EvidenceResult {
+    query: EvidenceQuery;
+    citations: EvidenceCitation[];
+    /** True when every returned citation is seed data rather than a licensed source. */
+    placeholderOnly: boolean;
+}
+
+export interface EvidenceQueryRecord {
+    id: string;
+    at: Iso8601;
+    taskId: string;
+    question: string;
+    region?: BodyRegion;
+    family?: InterventionFamily;
+    citationIds: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Agent 2 — treatment planning
+// ---------------------------------------------------------------------------
+
+export interface TreatmentGoal {
+    horizon: 'short-term' | 'long-term';
+    statement: string;
+    /** How the goal will be measured at review. */
+    measure: string;
+    targetDays: number;
+}
+
+export interface PlannedIntervention {
+    id: string;
+    family: InterventionFamily;
+    title: string;
+    detail: string;
+    dosage: string;
+    /** Never empty. An intervention with no citation does not enter the plan. */
+    citations: EvidenceCitation[];
+}
+
+export interface TreatmentPlan {
+    id: string;
+    patientId: string;
+    assessmentId: string;
+    clinicianId: string;
+    createdAt: Iso8601;
+    goals: TreatmentGoal[];
+    interventions: PlannedIntervention[];
+    precautions: string[];
+    reviewInDays: number;
+    /** Candidate interventions dropped because the knowledge base had nothing to support them. */
+    unsupported: string[];
+    /** 'proposed' until a clinician accepts it; only accepted plans feed Agent 4. */
+    status: 'proposed' | 'accepted' | 'rejected';
+    acceptedBy?: string;
+    acceptedAt?: Iso8601;
+}
+
+// ---------------------------------------------------------------------------
+// Agent 4 — exercise and patient education
+// ---------------------------------------------------------------------------
+
+export type ExerciseSource = 'clinic-library' | 'licensed-catalogue';
+
+export interface ExerciseAsset {
+    id: string;
+    name: string;
+    region: BodyRegion;
+    /** Treatment targets this asset serves, matched against the plan's targets. */
+    targets: string[];
+    equipment: string[];
+    /** 1 (unloaded, pain-free range) to 5 (high load / plyometric). */
+    difficulty: 1 | 2 | 3 | 4 | 5;
+    /** Continuous assets — walking, cycling — are dosed in minutes, not sets and reps. */
+    dosing: 'sets-reps' | 'duration';
+    videoUrl: string;
+    source: ExerciseSource;
+    contraindications: string[];
+}
+
+export interface PrescribedExercise {
+    exerciseId: string;
+    name: string;
+    source: ExerciseSource;
+    videoUrl: string;
+    /** Present for sets-and-reps assets. */
+    sets?: number;
+    reps?: number;
+    holdSeconds?: number;
+    /** Present for continuous assets. */
+    durationMinutes?: number;
+    frequencyPerWeek: number;
+    progression: string;
+    rationale: string;
+}
+
+export interface EducationItem {
+    topic: string;
+    summary: string;
+}
+
+export interface HomeExerciseProgramme {
+    id: string;
+    patientId: string;
+    planId: string;
+    createdAt: Iso8601;
+    exercises: PrescribedExercise[];
+    education: EducationItem[];
+    reviewInDays: number;
+    /** Ceiling on difficulty derived from the assessment's irritability grade. */
+    difficultyCap: 1 | 2 | 3 | 4 | 5;
+    /** Targets with no clinic asset, reported rather than silently substituted. */
+    coverageGaps: string[];
+    status: 'issued' | 'superseded';
+}
+
+// ---------------------------------------------------------------------------
+// Agent 5 — follow-up automation
+// ---------------------------------------------------------------------------
+
+export type Checkpoint = 'day-3' | 'week-1' | 'week-2' | 'week-6';
+
+export interface OutboundMessage {
+    id: string;
+    patientId: string;
+    programmeId: string;
+    checkpoint: Checkpoint;
+    channel: 'whatsapp';
+    /** Provider-approved template this message was rendered from. Free-form sends are not possible. */
+    templateId: string;
+    body: string;
+    createdAt: Iso8601;
+    scheduledFor: Iso8601;
+    status: 'draft' | 'approved' | 'sent' | 'suppressed';
+    suppressedReason?: string;
+    providerId?: string;
+    sentAt?: Iso8601;
+}
+
+export interface OutcomeMeasure {
+    id: string;
+    patientId: string;
+    programmeId: string;
+    checkpoint: Checkpoint;
+    recordedAt: Iso8601;
+    painScore: number;
+    adherence: 'none' | 'partial' | 'full';
+    freeText: string;
+    /** Phrases in the reply that triggered clinician review. */
+    concerns: string[];
+    escalated: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Agent 6 — marketing and content
+// ---------------------------------------------------------------------------
+
+export type ContentChannel = 'instagram' | 'linkedin' | 'blog' | 'newsletter';
+
+export interface ContentDraft {
+    id: string;
+    createdAt: Iso8601;
+    channel: ContentChannel;
+    topic: string;
+    audience: string;
+    headline: string;
+    body: string;
+    hashtags: string[];
+    disclaimer: string;
+    status: 'draft' | 'published';
+    publishedAt?: Iso8601;
+    publishedUrl?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Services the orchestrator brokers to modules
+// ---------------------------------------------------------------------------
+
+export interface EvidenceService {
+    query(query: EvidenceQuery): Promise<EvidenceResult>;
+}
+
+export interface ExerciseLibraryService {
+    search(criteria: { region: BodyRegion; targets: string[]; maxDifficulty: number; exclude?: string[] }): Promise<ExerciseAsset[]>;
+}
+
+export interface MessagingAdapter {
+    send(message: OutboundMessage): Promise<{ providerId: string; sentAt: Iso8601 }>;
+}
+
+export interface PublishingAdapter {
+    publish(draft: ContentDraft): Promise<{ publishedAt: Iso8601; url?: string }>;
+}
+
+/**
+ * Modules do not import each other. Where one needs another's capability — planning needs
+ * evidence — the orchestrator brokers it here, and only for modules granted the matching scope.
+ */
+export interface AgentServices {
+    evidence?: EvidenceService;
+    library?: ExerciseLibraryService;
+    messaging?: MessagingAdapter;
+    publishing?: PublishingAdapter;
+}
+
+// ---------------------------------------------------------------------------
 // Agent contracts
 // ---------------------------------------------------------------------------
 
@@ -179,6 +425,8 @@ export interface AgentContext {
     now(): Date;
     newId(prefix: string): string;
     store: JarvisStore;
+    /** Only the services this module's granted scopes entitle it to. */
+    services: AgentServices;
     audit(action: string, detail?: Record<string, string | number | boolean>): void;
 }
 
@@ -188,9 +436,19 @@ export interface AgentModule<TInput, TOutput> {
     scopes: readonly Scope[];
     /** True when output must be approved by a human before it leaves the system. */
     requiresApproval: boolean;
+    /**
+     * Narrows `requiresApproval` per output: a module that sometimes produces nothing outbound —
+     * a suppressed check-in — returns false so the approval queue stays a queue of real decisions.
+     */
+    needsApproval?(output: TOutput): boolean;
     /** Validate and narrow untrusted input at the module boundary. Throws on invalid input. */
     parse(input: unknown): TInput;
     run(input: TInput, ctx: AgentContext): Promise<AgentOutcome<TOutput>>;
+    /**
+     * Performs the outward-facing act — sending, publishing. The orchestrator calls this only
+     * after a named human has approved the draft, and never from `dispatch`.
+     */
+    deliver?(payload: TOutput, ctx: AgentContext): Promise<TOutput>;
 }
 
 /** Declaration of a module that is designed but not yet built. */
@@ -210,15 +468,23 @@ export interface PlannedModule {
 // Storage
 // ---------------------------------------------------------------------------
 
+export type CollectionFilter = Partial<Record<'patientId' | 'status' | 'assessmentId' | 'planId' | 'programmeId', string>>;
+
 export interface Collection<T extends { id: string }> {
     get(id: string): Promise<T | null>;
     put(record: T): Promise<T>;
-    list(filter?: Partial<Record<'patientId' | 'status', string>>): Promise<T[]>;
+    list(filter?: CollectionFilter): Promise<T[]>;
 }
 
 export interface JarvisStore {
     patients: Collection<PatientRecord>;
     assessments: Collection<AssessmentRecord>;
+    plans: Collection<TreatmentPlan>;
+    programmes: Collection<HomeExerciseProgramme>;
+    messages: Collection<OutboundMessage>;
+    outcomes: Collection<OutcomeMeasure>;
+    content: Collection<ContentDraft>;
+    evidenceQueries: Collection<EvidenceQueryRecord>;
     approvals: Collection<ApprovalRequest>;
     audit: { append(event: AuditEvent): Promise<void>; all(): Promise<AuditEvent[]> };
 }

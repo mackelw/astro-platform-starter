@@ -1,20 +1,9 @@
 import type { AgentContext, AgentModule, AgentOutcome, AssessmentInput, AssessmentRecord, RedFlagHit, RomDeficit, RomMeasurement } from '../types';
 import { DEFAULT_RED_FLAGS, normativeRange } from './clinicalReference';
-
-/** Thrown by `parse`. The orchestrator turns it into a `rejected` outcome. */
-export class InputValidationError extends Error {
-    constructor(readonly errors: string[]) {
-        super(`Invalid assessment input: ${errors.join('; ')}`);
-        this.name = 'InputValidationError';
-    }
-}
+import { InputValidationError, isObject } from '../validation';
 
 /** A deficit smaller than this is treated as measurement noise rather than a finding. */
 const DEFICIT_THRESHOLD_PERCENT = 10;
-
-function isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function parseInput(input: unknown): AssessmentInput {
     const errors: string[] = [];

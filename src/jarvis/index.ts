@@ -1,7 +1,21 @@
 export * from './types';
-export { createJarvis, PHASE_1_GRANTS } from './orchestrator';
-export type { Jarvis, JarvisOptions } from './orchestrator';
-export { MODULES, PLANNED_MODULES, describeModule } from './registry';
-export { assessmentAgent, signAssessment, InputValidationError } from './agents/assessment';
-export { DEFAULT_RED_FLAGS, NORMATIVE_ROM, normativeRange } from './agents/clinicalReference';
+export { createJarvis, PHASE_1_GRANTS, ALL_MODULE_GRANTS } from './orchestrator';
+export type { Jarvis, JarvisOptions, ApprovalDecision, ApprovalOutcome } from './orchestrator';
+export { MODULES, MODULE_PHASE, PLANNED_MODULES, describeModule } from './registry';
+export { InputValidationError } from './validation';
 export { createInMemoryStore } from './db/store';
+export { createRecordingMessagingAdapter, createRecordingPublishingAdapter } from './adapters';
+
+export { assessmentAgent, signAssessment } from './agents/assessment';
+export { treatmentPlanningAgent, acceptPlan } from './agents/treatmentPlanning';
+export type { TreatmentPlanRequest } from './agents/treatmentPlanning';
+export { knowledgeBaseAgent } from './agents/knowledgeBase';
+export { exerciseEducationAgent, deriveTargets } from './agents/exerciseEducation';
+export type { ProgrammeRequest } from './agents/exerciseEducation';
+export { followUpAgent, ingestFollowUpReply, optOut, CHECKPOINT_OFFSET_DAYS, MESSAGE_TEMPLATES, CONCERN_PHRASES } from './agents/followUp';
+export type { CheckInRequest, FollowUpReply } from './agents/followUp';
+export { marketingAgent, APPROVED_TOPICS } from './agents/marketing';
+export type { ContentRequest } from './agents/marketing';
+export { DEFAULT_RED_FLAGS, NORMATIVE_ROM, normativeRange, inferRegion } from './agents/clinicalReference';
+export { EVIDENCE_CORPUS } from './agents/evidenceCorpus';
+export { createExerciseLibrary, SAMPLE_EXERCISE_ASSETS } from './agents/exerciseLibrary';

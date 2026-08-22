@@ -1,4 +1,4 @@
-import type { Joint, Movement, RedFlagHit } from '../types';
+import type { AssessmentRecord, BodyRegion, Joint, Movement, RedFlagHit } from '../types';
 
 /**
  * Clinic-configurable clinical reference data used by Agent 1.
@@ -102,4 +102,30 @@ export const NORMATIVE_ROM: Readonly<Record<string, number>> = {
 
 export function normativeRange(joint: Joint, movement: Movement): number | undefined {
     return NORMATIVE_ROM[`${joint}:${movement}`];
+}
+
+const REGION_KEYWORDS: ReadonlyArray<[BodyRegion, string[]]> = [
+    ['shoulder', ['shoulder', 'rotator', 'overhead']],
+    ['knee', ['knee', 'patell', 'meniscus']],
+    ['lumbar-spine', ['back', 'lumbar', 'sciatic']],
+    ['cervical-spine', ['neck', 'cervical']],
+    ['hip', ['hip', 'groin', 'gluteal']],
+    ['ankle', ['ankle', 'achilles', 'calf']],
+    ['elbow', ['elbow', 'epicondyl']],
+    ['wrist', ['wrist', 'hand']]
+];
+
+/**
+ * The region an episode is about: the largest measured restriction, falling back to the complaint
+ * text. Shared by planning and exercise prescription so both read the same episode the same way.
+ */
+export function inferRegion(assessment: AssessmentRecord): BodyRegion {
+    const [largestDeficit] = assessment.findings.romDeficits;
+    if (largestDeficit) return largestDeficit.joint;
+
+    const complaint = assessment.input.history.presentingComplaint.toLowerCase();
+    for (const [region, keywords] of REGION_KEYWORDS) {
+        if (keywords.some((keyword) => complaint.includes(keyword))) return region;
+    }
+    return 'general';
 }
