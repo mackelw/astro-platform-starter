@@ -8,7 +8,9 @@
         "build": "astro build",
         "preview": "astro preview",
         "astro": "astro",
-        "jarvis:demo": "tsx scripts/jarvis-demo.ts"
+        "jarvis:demo": "tsx scripts/jarvis-demo.ts",
+        "test": "tsx --test \"src/jarvis/**/*.test.ts\"",
+        "test:watch": "tsx --test --watch \"src/jarvis/**/*.test.ts\""
     },
     "dependencies": {
         "@astrojs/netlify": "^6.2.3",

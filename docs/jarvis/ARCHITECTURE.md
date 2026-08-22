@@ -198,6 +198,25 @@ not, the same rule applies as everywhere else: a model proposes, the clinician s
   data-processing agreement and a no-training commitment, or the clinical modules run against a
   self-hosted model. This is a phase 2 blocker, not a phase 1 one — Agent 1's logic is deterministic.
 
+## Testing
+
+```bash
+npm test          # 135 tests, Node's built-in runner via tsx — no test framework dependency
+npm run jarvis:demo   # end-to-end walk-through; fails loudly if any stage returns the wrong status
+```
+
+Tests live beside the code as `*.test.ts`, with fixtures in `src/jarvis/testing/`. The decision
+logic is exported as pure functions precisely so it can be tested without a store or an
+orchestrator: `screenRedFlags`, `analyseRangeOfMotion`, `gradeIrritability`, `isEligible`,
+`scoreCitation`, `deriveTargets`, `detectConcerns`, `scheduleWithinWindow`.
+
+What the suite is actually for: the safety properties in this document are only true if something
+checks them. So it asserts, among the rest, that every red flag fires on its own; that a knee
+guideline can never be cited in a shoulder plan; that planning refuses a draft assessment and
+programmes refuse an unaccepted plan; that each module is refused when a scope is withheld; that a
+suppressed message cannot be delivered even when something calls `deliver()` directly; that a
+rejected approval publishes nothing; and that the audit trail carries no free-text clinical content.
+
 ## Open decisions
 
 The code is written; these are what stand between it and a real clinic. Each maps to a seam above.

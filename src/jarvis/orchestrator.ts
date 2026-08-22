@@ -159,7 +159,16 @@ export function createJarvis(options: JarvisOptions): Jarvis {
             }
 
             ctx.audit('dispatch.start', { agentId });
-            const outcome = await module.run(parsed, ctx);
+
+            let outcome: AgentOutcome<any>;
+            try {
+                outcome = await module.run(parsed, ctx);
+            } catch (error) {
+                // A module that throws — a broker refusing, a store failing — must not take the
+                // caller down with it. It becomes a rejection like any other, and it is audited.
+                ctx.audit('dispatch.error', { agentId, message: (error as Error).message });
+                return { status: 'rejected', errors: [`module '${agentId}' failed: ${(error as Error).message}`] };
+            }
 
             if (outcome.status === 'ok' && module.requiresApproval && (module.needsApproval?.(outcome.data) ?? true)) {
                 const approval: ApprovalRequest = {
