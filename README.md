@@ -59,6 +59,38 @@ driven by a single `--hud-tone` custom property — a new `LogEntry` kind is one
 `src/components/jarvis/tones.ts` and one rule in `jarvis.css`. All animation is disabled under
 `prefers-reduced-motion`.
 
+## Text-to-speech
+
+`POST /api/speak` turns text into audio via ElevenLabs. The API key is read server-side and the upstream audio is
+streamed straight back, so the credential never reaches frontend JavaScript.
+
+```bash
+cp .env.example .env   # .env is gitignored
+# then set ELEVENLABS_API_KEY
+```
+
+In production set the variables in the Netlify UI (Site configuration → Environment variables) rather than in a
+file. They're declared as `secret` server vars in `astro.config.mjs`, so Astro reads them from the runtime
+environment instead of baking them into the build — a key set after a build still works, and no build artifact
+ever contains it.
+
+```ts
+import { speak } from '../components/jarvis/speak';
+
+await speak('All systems nominal.'); // resolves when playback finishes
+```
+
+| Response | Meaning                                                                  |
+| :------- | :----------------------------------------------------------------------- |
+| `200`    | `audio/mpeg` stream                                                      |
+| `400`    | Missing/empty `text`, malformed JSON, or a `voiceId` that isn't an id    |
+| `413`    | Text longer than 5000 characters                                         |
+| `503`    | No `ELEVENLABS_API_KEY` set — callers should fall back to browser speech |
+| `502`    | Speech service unreachable or rejected the key                           |
+
+`speak()` throws `SpeechUnavailableError` carrying the status, so a caller can branch to `speechSynthesis` on a 503. `cleanForSpeech()` is exported separately for stripping terminal escapes, code fences and session
+bookkeeping out of agent transcripts before they're read aloud.
+
 ## Deploying to Netlify
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/netlify-templates/astro-platform-starter)
