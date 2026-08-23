@@ -1,0 +1,31 @@
+---
+import { logKinds, type LogKind } from './tones';
+
+interface Props {
+    /** Drives the accent on the rule and the label. */
+    kind: LogKind;
+    /** Defaults to the kind, uppercased. */
+    label?: string;
+    /** 24-hour timestamp. Defaults to render time. */
+    time?: string;
+    message?: string;
+    class?: string;
+}
+
+const { kind, label, time, message, class: className } = Astro.props;
+
+if (!logKinds.includes(kind)) {
+    throw new Error(`LogEntry: unknown kind "${kind}". Expected one of: ${logKinds.join(', ')}`);
+}
+
+const stamp = time ?? new Date().toLocaleTimeString('en-GB', { hour12: false });
+---
+
+<div class:list={[`hud-entry hud-entry--${kind}`, className]}>
+    <div class="hud-entry__head">
+        <span class="hud-entry__time">{stamp}</span>
+        <span class="hud-entry__kind">{label ?? kind.toUpperCase()}</span>
+    </div>
+    {message && <div class="hud-entry__body">{message}</div>}
+    <slot />
+</div>

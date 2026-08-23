@@ -1,0 +1,533 @@
+/* JARVIS HUD — design tokens and component classes.
+   Ported from the jarvis-hermes-dashboard mission-control UI.
+
+   Everything here is namespaced (`--*-hud-*` tokens, `.hud-*` classes) so it sits
+   alongside the starter's own theme instead of replacing it. The classes are plain
+   CSS on purpose: Astro components, React islands and hand-written markup can all
+   use them without importing anything. */
+
+@theme {
+    --font-hud-display: 'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
+    --font-hud-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, Consolas, monospace;
+
+    /* ground */
+    --color-hud-void: #02070c;
+    --color-hud-deep: #041018;
+    --color-hud-panel: #05121c;
+
+    /* type */
+    --color-hud-ink: #e8fbff;
+    --color-hud-muted: #83b7c4;
+    --color-hud-dim: #47717f;
+    --color-hud-faint: #263f49;
+
+    /* signal */
+    --color-hud-cyan: #40f3ff;
+    --color-hud-cyan-deep: #16b8d4;
+    --color-hud-amber: #ffb648;
+    --color-hud-green: #39f5a6;
+    --color-hud-red: #ff5d6c;
+    --color-hud-violet: #a884ff;
+
+    /* edges */
+    --color-hud-edge: #39e8ff3d;
+    --color-hud-edge-bright: #39e8ff8c;
+    --color-hud-edge-gold: #ffb64880;
+
+    --radius-hud-panel: 1.75rem;
+    --radius-hud-field: 1.375rem;
+    --radius-hud-tile: 1.125rem;
+    --radius-hud-control: 0.9375rem;
+
+    --shadow-hud-panel: 0 0 45px #40f3ff14, inset 0 0 55px #40f3ff09;
+    --shadow-hud-glow: 0 0 26px #40f3ff2e;
+    --shadow-hud-tile: inset 0 0 20px #40f3ff0a, 0 0 28px #40f3ff14;
+
+    --animate-hud-scan: hud-scan 7s linear infinite;
+    --animate-hud-blink: hud-blink 1.4s steps(1) infinite;
+    --animate-hud-slide-in: hud-slide-in 0.28s ease-out;
+    --animate-hud-pulse: hud-pulse 3.8s ease-in-out infinite;
+    --animate-hud-rec: hud-rec 1.3s ease-in-out infinite;
+    --animate-hud-spin: hud-spin 42s linear infinite;
+}
+
+/* Declared outside @theme so custom CSS (the reactor's several spin durations)
+   can reference them by name without the utility being in play. */
+@keyframes hud-scan {
+    from {
+        background-position: 0 -100vh;
+    }
+    to {
+        background-position: 0 100vh;
+    }
+}
+
+@keyframes hud-blink {
+    50% {
+        opacity: 0.25;
+    }
+}
+
+@keyframes hud-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes hud-pulse {
+    50% {
+        transform: scale(1.06);
+    }
+}
+
+@keyframes hud-rec {
+    50% {
+        box-shadow: 0 0 30px #ff5d6c47;
+    }
+}
+
+@keyframes hud-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@layer components {
+    /* ── ground ────────────────────────────────────────────────────────── */
+
+    .hud-surface {
+        background:
+            radial-gradient(1000px 620px at 52% 18%, #095b706b, transparent 62%), radial-gradient(760px 520px at 88% 85%, #25849629, transparent 62%),
+            linear-gradient(180deg, var(--color-hud-void), var(--color-hud-deep) 62%, var(--color-hud-void));
+        color: var(--color-hud-ink);
+        font-family: var(--font-hud-display);
+        letter-spacing: 0.01em;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .hud-grid {
+        @apply fixed inset-0 z-0 pointer-events-none;
+        opacity: 0.7;
+        background-image: linear-gradient(#40f3ff0e 1px, transparent 1px), linear-gradient(90deg, #40f3ff0e 1px, transparent 1px);
+        background-size: 54px 54px;
+        mask: radial-gradient(78% 72% at 50% 46%, #000 30%, transparent 100%);
+    }
+
+    .hud-scanlines {
+        @apply fixed inset-0 z-40 pointer-events-none;
+        opacity: 0.42;
+        background: linear-gradient(#40f3ff00 0%, #40f3ff0a 50%, #40f3ff00 100%);
+        background-size: 100% 9px;
+        animation: var(--animate-hud-scan);
+    }
+
+    .hud-ambient {
+        @apply fixed rounded-full pointer-events-none;
+        filter: blur(42px);
+    }
+
+    /* ── panel ─────────────────────────────────────────────────────────── */
+
+    .hud-panel {
+        @apply relative overflow-hidden;
+        border: 1px solid var(--color-hud-edge);
+        border-radius: var(--radius-hud-panel);
+        background: linear-gradient(180deg, #071824b8, #030d148a);
+        box-shadow: var(--shadow-hud-panel);
+        backdrop-filter: blur(12px);
+    }
+
+    /* Corner sheen — cyan top-left falling off to a gold catch bottom-right. */
+    .hud-panel::before {
+        content: '';
+        @apply absolute inset-0 pointer-events-none;
+        border-radius: inherit;
+        background: linear-gradient(135deg, #40f3ff2e, transparent 24%, transparent 72%, #ffb64814);
+    }
+
+    .hud-panel--plain::before {
+        content: none;
+    }
+
+    /* ── type ──────────────────────────────────────────────────────────── */
+
+    .hud-heading {
+        @apply font-bold uppercase;
+        font-size: 1.875rem;
+        line-height: 1.02;
+        letter-spacing: 0.08em;
+        color: var(--color-hud-cyan);
+        text-shadow: 0 0 18px #40f3ff80;
+    }
+
+    .hud-heading--sm {
+        font-size: 1.5rem;
+    }
+
+    .hud-label {
+        font-family: var(--font-hud-mono);
+        font-size: 0.6875rem;
+        letter-spacing: 0.22em;
+        @apply uppercase;
+        color: var(--color-hud-muted);
+    }
+
+    .hud-sub {
+        font-family: var(--font-hud-mono);
+        font-size: 0.6875rem;
+        letter-spacing: 0.22em;
+        @apply uppercase;
+        color: var(--color-hud-dim);
+    }
+
+    .hud-overline {
+        font-family: var(--font-hud-mono);
+        font-size: 0.8125rem;
+        letter-spacing: 0.52em;
+        @apply uppercase whitespace-nowrap;
+        color: var(--color-hud-amber);
+        text-shadow: 0 0 14px #ffb64880;
+    }
+
+    .hud-live {
+        font-family: var(--font-hud-mono);
+        font-size: 0.625rem;
+        letter-spacing: 0.18em;
+        color: var(--color-hud-cyan-deep);
+    }
+
+    .hud-live::before {
+        content: '◍ ';
+        color: var(--color-hud-green);
+        animation: var(--animate-hud-blink);
+    }
+
+    /* Streaming-text caret. */
+    .hud-caret {
+        @apply inline-block ml-px align-[-3px];
+        width: 8px;
+        height: 16px;
+        background: var(--color-hud-cyan);
+        box-shadow: 0 0 10px var(--color-hud-cyan);
+        animation: hud-blink 1s steps(1) infinite;
+    }
+
+    /* ── pill ──────────────────────────────────────────────────────────── */
+
+    .hud-pill {
+        @apply flex items-center gap-3.5 overflow-hidden whitespace-nowrap;
+        height: 2.875rem;
+        padding: 0 1.25rem;
+        border: 1px solid #40f3ff2e;
+        border-radius: 1.75rem;
+        background: #040d14b8;
+        box-shadow: var(--shadow-hud-tile);
+        color: var(--color-hud-muted);
+    }
+
+    .hud-pill__dot {
+        @apply rounded-full shrink-0;
+        width: 13px;
+        height: 13px;
+        background: var(--hud-tone, var(--color-hud-cyan));
+        box-shadow: 0 0 14px var(--hud-tone, var(--color-hud-cyan));
+    }
+
+    .hud-pill > span {
+        @apply overflow-hidden text-ellipsis;
+    }
+
+    /* ── command button ────────────────────────────────────────────────── */
+
+    .hud-command {
+        @apply relative overflow-hidden text-left cursor-pointer;
+        padding: 1.0625rem 1rem;
+        border: 1px solid #40f3ff2e;
+        border-radius: var(--radius-hud-tile);
+        background: #05121cb8;
+        color: var(--color-hud-ink);
+        font-family: var(--font-hud-display);
+        transition: 0.18s;
+    }
+
+    /* Light sweeps across the tile on hover. */
+    .hud-command::after {
+        content: '';
+        @apply absolute inset-0;
+        background: linear-gradient(120deg, transparent 35%, #40f3ff29, transparent 65%);
+        transform: translateX(-120%);
+        transition: 0.6s;
+    }
+
+    .hud-command:hover {
+        border-color: var(--color-hud-edge-bright);
+        transform: translateY(-1px);
+        box-shadow: 0 0 26px #40f3ff2e;
+    }
+
+    .hud-command:hover::after {
+        transform: translateX(120%);
+    }
+
+    /* Armed = clicked, now waiting for the payload that follows it. */
+    .hud-command.is-armed {
+        border-color: var(--color-hud-cyan);
+        background: #40f3ff1a;
+        box-shadow: 0 0 30px #40f3ff47;
+    }
+
+    .hud-command__key {
+        @apply block;
+        font-family: var(--font-hud-mono);
+        font-size: 1rem;
+        color: var(--color-hud-cyan);
+    }
+
+    .hud-command__label {
+        @apply block mt-1.5 uppercase;
+        font-size: 0.625rem;
+        letter-spacing: 0.18em;
+        color: var(--color-hud-dim);
+    }
+
+    /* ── chip ──────────────────────────────────────────────────────────── */
+
+    .hud-chip {
+        @apply inline-block max-w-full overflow-hidden rounded-full whitespace-nowrap text-ellipsis;
+        padding: 0.375rem 0.5625rem;
+        border: 1px solid #40f3ff38;
+        background: #40f3ff12;
+        font-family: var(--font-hud-mono);
+        font-size: 0.625rem;
+        color: var(--color-hud-cyan);
+    }
+
+    .hud-chip--ghost {
+        color: var(--color-hud-dim);
+    }
+
+    /* ── stat grid ─────────────────────────────────────────────────────── */
+
+    .hud-stat-grid {
+        @apply grid overflow-hidden;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        border: 1px solid var(--color-hud-edge);
+        border-radius: var(--radius-hud-tile);
+        background: var(--color-hud-edge);
+    }
+
+    .hud-stat {
+        @apply flex flex-col gap-1;
+        padding: 0.625rem 0.8125rem;
+        background: #05121cc7;
+    }
+
+    .hud-stat__label {
+        font-family: var(--font-hud-mono);
+        font-size: 0.5625rem;
+        letter-spacing: 0.16em;
+        @apply uppercase;
+        color: var(--color-hud-dim);
+    }
+
+    .hud-stat__value {
+        @apply overflow-hidden whitespace-nowrap text-ellipsis;
+        font-family: var(--font-hud-mono);
+        font-size: 0.6875rem;
+        color: var(--hud-tone, var(--color-hud-cyan));
+    }
+
+    /* ── telemetry log ─────────────────────────────────────────────────── */
+
+    .hud-log {
+        @apply flex flex-col gap-3.5 min-h-0 overflow-auto;
+        font-family: var(--font-hud-mono);
+    }
+
+    .hud-entry {
+        padding-left: 0.75rem;
+        border-left: 2px solid var(--hud-tone, var(--color-hud-faint));
+        animation: var(--animate-hud-slide-in);
+    }
+
+    .hud-entry__head {
+        @apply flex items-baseline gap-2.5;
+        font-size: 0.6875rem;
+    }
+
+    .hud-entry__time {
+        color: var(--color-hud-dim);
+    }
+
+    .hud-entry__kind {
+        @apply font-bold;
+        letter-spacing: 0.1em;
+        color: var(--hud-tone, var(--color-hud-dim));
+    }
+
+    .hud-entry__body {
+        @apply mt-1;
+        font-size: 0.75rem;
+        line-height: 1.55;
+        color: var(--color-hud-muted);
+    }
+
+    /* One accent drives the rule and the label, so a new kind is one line. */
+    .hud-entry--run,
+    .hud-entry--reasoning {
+        --hud-tone: var(--color-hud-cyan);
+    }
+
+    .hud-entry--status,
+    .hud-entry--voice,
+    .hud-entry--latency {
+        --hud-tone: var(--color-hud-cyan-deep);
+    }
+
+    .hud-entry--tool,
+    .hud-entry--command {
+        --hud-tone: var(--color-hud-amber);
+    }
+
+    .hud-entry--complete,
+    .hud-entry--send {
+        --hud-tone: var(--color-hud-green);
+    }
+
+    .hud-entry--error {
+        --hud-tone: var(--color-hud-red);
+    }
+
+    .hud-entry--thought {
+        --hud-tone: var(--color-hud-violet);
+    }
+
+    .hud-entry--note {
+        --hud-tone: var(--color-hud-faint);
+    }
+
+    .hud-json {
+        @apply mt-2 whitespace-pre;
+        padding: 0.6875rem 0.8125rem;
+        border: 1px solid var(--color-hud-edge);
+        border-radius: 0.875rem;
+        background: #03121a99;
+        font-size: 0.6875rem;
+        line-height: 1.65;
+        color: var(--color-hud-muted);
+    }
+
+    .hud-json__key {
+        color: var(--color-hud-cyan-deep);
+    }
+
+    .hud-json__value {
+        color: var(--color-hud-cyan);
+    }
+
+    /* ── input field ───────────────────────────────────────────────────── */
+
+    .hud-field {
+        padding: 0.25rem;
+        border: 1px solid var(--color-hud-edge);
+        border-radius: var(--radius-hud-field);
+        background: #030e16ad;
+        transition: 0.2s;
+    }
+
+    .hud-field:focus-within {
+        border-color: var(--color-hud-cyan);
+        box-shadow: 0 0 32px #40f3ff2e;
+    }
+
+    .hud-input {
+        @apply w-full bg-transparent border-0 outline-0 resize-none;
+        padding: 0.875rem 0.9375rem;
+        font-family: var(--font-hud-mono);
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: var(--color-hud-ink);
+    }
+
+    .hud-input::placeholder {
+        color: var(--color-hud-faint);
+    }
+
+    /* ── control button ────────────────────────────────────────────────── */
+
+    .hud-control {
+        @apply cursor-pointer font-bold;
+        padding: 0.6875rem 0.625rem;
+        border: 1px solid var(--color-hud-edge);
+        border-radius: var(--radius-hud-control);
+        background: #05121cbf;
+        color: var(--color-hud-ink);
+        font-family: var(--font-hud-mono);
+        font-size: 0.625rem;
+        letter-spacing: 0.08em;
+        transition: 0.16s;
+    }
+
+    .hud-control:hover {
+        border-color: var(--color-hud-edge-bright);
+        box-shadow: 0 0 24px #40f3ff24;
+    }
+
+    .hud-control--primary {
+        background: linear-gradient(180deg, #40f3ff38, #40f3ff0f);
+        border-color: var(--color-hud-cyan);
+        box-shadow: 0 0 26px #40f3ff24;
+    }
+
+    .hud-control--ghost {
+        color: var(--color-hud-muted);
+    }
+
+    /* Recording — reads as live, not as a disabled state. */
+    .hud-control--recording {
+        background: #ff5d6c21;
+        border-color: var(--color-hud-red);
+        color: var(--color-hud-red);
+        animation: var(--animate-hud-rec);
+    }
+
+    /* ── scrollbar ─────────────────────────────────────────────────────── */
+
+    .hud-scroll::-webkit-scrollbar {
+        width: 7px;
+        height: 7px;
+    }
+
+    .hud-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .hud-scroll::-webkit-scrollbar-thumb {
+        background: var(--color-hud-edge);
+        border-radius: 10px;
+    }
+}
+
+/* The HUD leans on constant motion; honour a request to stop it. */
+@media (prefers-reduced-motion: reduce) {
+    .hud-scanlines,
+    .hud-live::before,
+    .hud-caret,
+    .hud-entry,
+    .hud-control--recording,
+    [class*='hud-reactor'] * {
+        animation: none !important;
+    }
+
+    .hud-command,
+    .hud-command::after,
+    .hud-control {
+        transition: none;
+    }
+}

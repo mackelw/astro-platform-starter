@@ -1,0 +1,15 @@
+---
+import { toneVar, type Tone } from './tones';
+
+interface Props {
+    tone?: Tone;
+    class?: string;
+}
+
+const { tone = 'cyan', class: className } = Astro.props;
+---
+
+<div class:list={['hud-pill', className]} style={`--hud-tone: ${toneVar(tone)}`}>
+    <i class="hud-pill__dot"></i>
+    <span><slot /></span>
+</div>

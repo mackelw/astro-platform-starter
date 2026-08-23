@@ -1,0 +1,219 @@
+---
+import HudLayout from '../layouts/HudLayout.astro';
+import Panel from '../components/jarvis/Panel.astro';
+import PanelHeading from '../components/jarvis/PanelHeading.astro';
+import Pill from '../components/jarvis/Pill.astro';
+import CommandButton from '../components/jarvis/CommandButton.astro';
+import Chip from '../components/jarvis/Chip.astro';
+import StatGrid from '../components/jarvis/StatGrid.astro';
+import Stat from '../components/jarvis/Stat.astro';
+import TelemetryLog from '../components/jarvis/TelemetryLog.astro';
+import LogEntry from '../components/jarvis/LogEntry.astro';
+import JsonBlock from '../components/jarvis/JsonBlock.astro';
+import Reactor from '../components/jarvis/Reactor.astro';
+import type { ReactorState } from '../components/jarvis/Reactor.astro';
+
+const swatches = [
+    { name: 'cyan', token: '--color-hud-cyan' },
+    { name: 'cyan-deep', token: '--color-hud-cyan-deep' },
+    { name: 'amber', token: '--color-hud-amber' },
+    { name: 'green', token: '--color-hud-green' },
+    { name: 'red', token: '--color-hud-red' },
+    { name: 'violet', token: '--color-hud-violet' },
+    { name: 'ink', token: '--color-hud-ink' },
+    { name: 'muted', token: '--color-hud-muted' },
+    { name: 'dim', token: '--color-hud-dim' },
+    { name: 'faint', token: '--color-hud-faint' },
+    { name: 'panel', token: '--color-hud-panel' },
+    { name: 'void', token: '--color-hud-void' }
+];
+
+const commands = [
+    { command: '/new', label: 'Fresh thread' },
+    { command: '/goal', label: 'Standing objective', armed: true },
+    { command: '/tools', label: 'Tool status' },
+    { command: '/browser', label: 'Browser op' },
+    { command: '/background', label: 'Async mission' },
+    { command: '/mission', label: 'Mission queue' }
+];
+
+const reactorStates: { state: ReactorState; word: string; caption: string }[] = [
+    { state: 'standby', word: 'STANDBY', caption: 'awaiting uplink' },
+    { state: 'running', word: 'RUNNING', caption: 'thinking… 2.4s' },
+    { state: 'complete', word: 'COMPLETE', caption: '1180ms' },
+    { state: 'fault', word: 'FAULT', caption: 'stream dropped' }
+];
+---
+
+<HudLayout title="JARVIS HUD — design system">
+    <div class="max-w-6xl px-6 py-16 mx-auto space-y-14 sm:px-10">
+        <header>
+            <p class="hud-overline">Design system</p>
+            <h1 class="mt-3 hud-heading">JARVIS HUD</h1>
+            <p class="max-w-2xl mt-4 text-sm leading-relaxed text-hud-muted">
+                Tokens and components ported from the Hermes mission-control interface. Every component is a thin wrapper over a <code class="font-hud-mono text-hud-cyan">.hud-*</code> class, so React islands and plain markup can use the same styling without importing anything.
+            </p>
+        </header>
+
+        <!-- tokens -->
+        <section>
+            <PanelHeading title="Tokens" sub="src/styles/jarvis.css" size="sm" />
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                {
+                    swatches.map((s) => (
+                        <div class="p-3 hud-panel hud-panel--plain">
+                            <div class="w-full h-10 border rounded-lg border-hud-edge" style={`background: var(${s.token})`} />
+                            <div class="mt-2.5 hud-stat__label">{s.name}</div>
+                            <div class="mt-1 font-hud-mono text-[0.625rem] text-hud-dim">{s.token}</div>
+                        </div>
+                    ))
+                }
+            </div>
+            <div class="grid gap-3 mt-3 sm:grid-cols-2">
+                <Panel class="p-5">
+                    <div class="hud-stat__label">font-hud-display</div>
+                    <p class="mt-2 text-2xl font-hud-display">Chakra Petch 0123</p>
+                </Panel>
+                <Panel class="p-5">
+                    <div class="hud-stat__label">font-hud-mono</div>
+                    <p class="mt-2 text-2xl font-hud-mono">JetBrains Mono 0123</p>
+                </Panel>
+            </div>
+        </section>
+
+        <!-- panel + heading -->
+        <section>
+            <PanelHeading title="Panel" sub="Panel.astro · PanelHeading.astro" size="sm" />
+            <div class="grid gap-4 lg:grid-cols-2">
+                <Panel class="p-6">
+                    <PanelHeading title={'Command\nMatrix'} sub="Click to execute · payload commands stay armed" />
+                    <p class="text-sm text-hud-muted">Glass fill, cyan edge, and a diagonal sheen that catches gold at the far corner.</p>
+                </Panel>
+                <Panel class="p-6" sheen={false}>
+                    <PanelHeading title="Action Log" size="sm" row>
+                        <span slot="aside" class="hud-live">LIVE TELEMETRY</span>
+                    </PanelHeading>
+                    <p class="text-sm text-hud-muted">Same panel with <code class="font-hud-mono text-hud-cyan">sheen={'{false}'}</code> — flat, for dense readouts.</p>
+                </Panel>
+            </div>
+        </section>
+
+        <!-- pills -->
+        <section>
+            <PanelHeading title="Pill" sub="Pill.astro · status readouts" size="sm" />
+            <div class="flex flex-wrap gap-3">
+                <Pill tone="ok">Gateway: online</Pill>
+                <Pill>Profile: default</Pill>
+                <Pill tone="warn">Voice: browser</Pill>
+                <Pill tone="alert">Runtime: unreachable</Pill>
+                <Pill tone="violet">Speaking</Pill>
+                <Pill tone="muted">Idle</Pill>
+            </div>
+        </section>
+
+        <!-- commands -->
+        <section>
+            <PanelHeading title="Command button" sub="CommandButton.astro · click to arm" size="sm" />
+            <div class="grid grid-cols-2 gap-3.5 sm:grid-cols-3" id="command-matrix">
+                {commands.map((c) => <CommandButton command={c.command} label={c.label} armed={c.armed} />)}
+            </div>
+            <p class="mt-3 hud-sub">Armed tiles stay lit until the next instruction becomes their payload.</p>
+        </section>
+
+        <!-- chips + stats -->
+        <section class="grid gap-4 lg:grid-cols-2">
+            <Panel class="p-6">
+                <PanelHeading title="Chip" sub="Chip.astro" size="sm" />
+                <div class="flex flex-wrap gap-2">
+                    <Chip>browser</Chip>
+                    <Chip>shell</Chip>
+                    <Chip>memory</Chip>
+                    <Chip>mcp:notion</Chip>
+                    <Chip>gmail</Chip>
+                    <Chip ghost>loading tool matrix…</Chip>
+                </div>
+            </Panel>
+            <Panel class="p-6">
+                <PanelHeading title="Stat grid" sub="StatGrid.astro · Stat.astro" size="sm" />
+                <StatGrid>
+                    <Stat label="Gateway" value="online" tone="ok" />
+                    <Stat label="Brain" value="hermes-4" />
+                    <Stat label="Voice" value="browser" tone="warn" />
+                    <Stat label="Profile" value="default" />
+                    <Stat label="Runtime" value="0.4.2" />
+                    <Stat label="Uplink" value="14:02:51" />
+                </StatGrid>
+            </Panel>
+        </section>
+
+        <!-- telemetry -->
+        <section>
+            <PanelHeading title="Telemetry" sub="TelemetryLog.astro · LogEntry.astro · JsonBlock.astro" size="sm" />
+            <Panel class="p-6">
+                <TelemetryLog>
+                    <LogEntry kind="run" time="14:02:44" message="started run_9f21c8; uplink cleared" />
+                    <LogEntry kind="status" time="14:02:44" message="core online · tools=18 profile=default permission=normal" />
+                    <LogEntry kind="latency" time="14:02:45" message="first token after 412ms" />
+                    <LogEntry kind="tool" time="14:02:46" message="→ browser(open current tab)" />
+                    <LogEntry kind="thought" label="REASONING" time="14:02:47" message="Checking the active tab before acting on the page." />
+                    <LogEntry kind="error" time="14:02:49" message="tool call rejected: permission required" />
+                    <LogEntry kind="complete" time="14:02:51" message="run completed in 1180ms">
+                        <JsonBlock data={{ input_tokens: 2214, output_tokens: 318, total_tokens: 2532 }} />
+                    </LogEntry>
+                    <LogEntry kind="note" time="14:02:52" message="session parked" />
+                </TelemetryLog>
+            </Panel>
+        </section>
+
+        <!-- reactor -->
+        <section>
+            <PanelHeading title="Reactor" sub="Reactor.astro · state drives arc speed and word colour" size="sm" />
+            <Panel class="flex flex-col items-center gap-4 p-8 mb-4">
+                <Reactor state="running" word="RUNNING" caption="run_9f21c8 · thinking… 2.4s" size="min(60vh, 420px)" />
+                <p class="max-w-xl text-sm text-center text-hud-muted">
+                    Three arcs at mismatched rates and directions, 128 build-time tick marks, and a pulsing core. The readout scales with the component, so
+                    the same markup works at any <code class="font-hud-mono text-hud-cyan">size</code>.
+                </p>
+            </Panel>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {
+                    reactorStates.map((r) => (
+                        <Panel class="flex flex-col items-center gap-4 p-6">
+                            <Reactor state={r.state} word={r.word} caption={r.caption} size="min(30vh, 220px)" brand="" />
+                            <code class="hud-chip">state="{r.state}"</code>
+                        </Panel>
+                    ))
+                }
+            </div>
+        </section>
+
+        <!-- field + controls -->
+        <section>
+            <PanelHeading title="Field and controls" sub=".hud-field · .hud-input · .hud-control" size="sm" />
+            <Panel class="p-6">
+                <div class="hud-field">
+                    <textarea class="hud-input" rows="3" spellcheck="false" placeholder="Type an instruction. Slash commands are supported."></textarea>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-4">
+                    <button type="button" class="hud-control">◉ Browser Voice</button>
+                    <button type="button" class="hud-control hud-control--primary grow">Transmit ▸</button>
+                    <button type="button" class="hud-control hud-control--ghost">Show Commands</button>
+                    <button type="button" class="hud-control hud-control--recording">● Recording</button>
+                </div>
+                <p class="mt-4 text-sm text-hud-muted">
+                    Streaming text ends on a caret: <span class="hud-caret"></span>
+                </p>
+            </Panel>
+        </section>
+    </div>
+</HudLayout>
+
+<script>
+    // The armed state is a class, so arming is a one-line toggle from anywhere.
+    document.getElementById('command-matrix')?.addEventListener('click', (event) => {
+        const tile = (event.target as HTMLElement).closest('.hud-command');
+        if (!tile) return;
+        const armed = tile.classList.toggle('is-armed');
+        tile.setAttribute('aria-pressed', String(armed));
+    });
+</script>

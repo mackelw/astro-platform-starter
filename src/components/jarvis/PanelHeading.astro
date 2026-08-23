@@ -1,0 +1,25 @@
+---
+interface Props {
+    /** Heading text. Use `\n` to break it across lines, as the HUD columns do. */
+    title: string;
+    /** Small mono caption under the title. */
+    sub?: string;
+    size?: 'md' | 'sm';
+    /** Lay the title and the `aside` slot out on one baseline instead of stacking. */
+    row?: boolean;
+    class?: string;
+}
+
+const { title, sub, size = 'md', row = false, class: className } = Astro.props;
+const lines = title.split('\n');
+---
+
+<header class:list={['mb-4', row && 'flex items-baseline justify-between', className]}>
+    <div>
+        <h2 class:list={['hud-heading', size === 'sm' && 'hud-heading--sm']}>
+            {lines.map((line, i) => (i === 0 ? line : [<br />, line]))}
+        </h2>
+        {sub && <p class="mt-2.5 hud-sub">{sub}</p>}
+    </div>
+    <slot name="aside" />
+</header>

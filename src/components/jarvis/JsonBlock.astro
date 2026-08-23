@@ -1,0 +1,23 @@
+---
+interface Props {
+    /** Rendered as a small syntax-coloured JSON object, one key per line. */
+    data: Record<string, string | number>;
+    class?: string;
+}
+
+const { data, class: className } = Astro.props;
+
+/* Built as one string rather than a template loop: the block is `white-space: pre`,
+   and Astro inserts whitespace between adjacent expressions, which shows up as
+   stray gaps around the punctuation. */
+const escape = (value: string) => value.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c);
+
+const entries = Object.entries(data);
+const rows = entries.map(([key, value], i) => {
+    const rendered = typeof value === 'number' ? String(value) : `"${escape(value)}"`;
+    const comma = i < entries.length - 1 ? ',' : '';
+    return `  <span class="hud-json__key">"${escape(key)}"</span>: <span class="hud-json__value">${rendered}</span>${comma}`;
+});
+---
+
+<div class:list={['hud-json', className]} set:html={`{\n${rows.join('\n')}\n}`} />

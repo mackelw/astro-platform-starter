@@ -1,0 +1,252 @@
+---
+export type ReactorState = 'standby' | 'listening' | 'running' | 'speaking' | 'complete' | 'fault';
+
+interface Props {
+    /** Drives arc speed and the colour of the status word. */
+    state?: ReactorState;
+    /** Large status word in the core, e.g. `STANDBY`. */
+    word?: string;
+    /** Mono caption beneath it — run id, elapsed time, last error. */
+    caption?: string;
+    /** Small tracking-wide line above the word. */
+    brand?: string;
+    /** Any CSS length. Defaults to `min(39vh, 500px)`. */
+    size?: string;
+    class?: string;
+}
+
+const { state = 'standby', word = 'STANDBY', caption, brand = 'JARVIS CORE', size, class: className } = Astro.props;
+
+/* Tick marks were built by a runtime loop in the original HUD; there is nothing
+   dynamic about them, so they are laid out here at build time instead. */
+const TICKS = 128;
+const ticks = Array.from({ length: TICKS }, (_, i) => {
+    const angle = (i / TICKS) * Math.PI * 2;
+    const major = i % 8 === 0;
+    const inner = major ? 246 : 250;
+    return {
+        major,
+        x1: 260 + Math.cos(angle) * inner,
+        y1: 260 + Math.sin(angle) * inner,
+        x2: 260 + Math.cos(angle) * 260,
+        y2: 260 + Math.sin(angle) * 260
+    };
+});
+
+/* Unique per instance so two reactors on one page don't share a gradient. */
+const uid = Math.random().toString(36).slice(2, 9);
+---
+
+<div class:list={['hud-reactor', className]} data-state={state} style={size ? `--hud-reactor-size: ${size}` : undefined}>
+    <svg viewBox="0 0 520 520" role="img" aria-label={`Reactor visualiser — ${word}`}>
+        <defs>
+            <radialGradient id={`orb-${uid}`} cx="50%" cy="45%" r="55%">
+                <stop offset="0%" stop-color="#ffffff"></stop>
+                <stop offset="25%" stop-color="#7ff7ff"></stop>
+                <stop offset="58%" stop-color="#16bfd8"></stop>
+                <stop offset="100%" stop-color="#02111b"></stop>
+            </radialGradient>
+            <filter id={`soft-${uid}`} x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="6" result="b"></feGaussianBlur>
+                <feMerge>
+                    <feMergeNode in="b"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                </feMerge>
+            </filter>
+        </defs>
+
+        <circle class="ring" cx="260" cy="260" r="242"></circle>
+        <circle class="ring ring--dashed" cx="260" cy="260" r="210"></circle>
+        <circle class="ring ring--fine" cx="260" cy="260" r="174"></circle>
+        <circle class="ring ring--gold" cx="260" cy="260" r="132"></circle>
+
+        <circle class="arc arc--a" cx="260" cy="260" r="226" filter={`url(#soft-${uid})`}></circle>
+        <circle class="arc arc--b" cx="260" cy="260" r="188" filter={`url(#soft-${uid})`}></circle>
+        <circle class="arc arc--c" cx="260" cy="260" r="151" filter={`url(#soft-${uid})`}></circle>
+
+        <g class="ticks">
+            {ticks.map((t) => <line class:list={[t.major && 'is-major']} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} />)}
+        </g>
+
+        <path class="comet" d="M80 318 Q 195 392 278 310"></path>
+        <circle class="orb" cx="260" cy="260" r="64" fill={`url(#orb-${uid})`} filter={`url(#soft-${uid})`}></circle>
+        <circle class="orb-rim" cx="260" cy="260" r="64"></circle>
+    </svg>
+
+    <div class="readout">
+        {brand && <div class="readout__brand">{brand}</div>}
+        <div class="readout__word">{word}</div>
+        {caption && <div class="readout__caption">{caption}</div>}
+    </div>
+</div>
+
+<style>
+    .hud-reactor {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: var(--hud-reactor-size, min(39vh, 500px));
+        aspect-ratio: 1;
+        /* The readout sizes in `cqw` off this box, so the core reads the same
+           at 220px as at 500px instead of spilling out of the rings. */
+        container-type: inline-size;
+    }
+
+    svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+
+    .ring {
+        fill: none;
+        stroke: #40f3ff29;
+        stroke-width: 1;
+        transform-origin: 260px 260px;
+    }
+
+    .ring--dashed {
+        stroke-dasharray: 2 10;
+        animation: hud-spin 42s linear infinite;
+    }
+
+    .ring--fine {
+        stroke-dasharray: 1 8;
+        animation: hud-spin 30s linear reverse infinite;
+    }
+
+    .ring--gold {
+        stroke: #ffb6482e;
+    }
+
+    .arc {
+        fill: none;
+        stroke-linecap: round;
+        transform-origin: 260px 260px;
+    }
+
+    /* The three arcs turn at different rates and directions — that mismatch is
+       what makes the core read as machinery rather than a spinner. */
+    .arc--a {
+        stroke: var(--color-hud-cyan);
+        stroke-width: 3;
+        stroke-dasharray: 190 1220;
+        opacity: 0.9;
+        animation: hud-spin 12s linear infinite;
+    }
+
+    .arc--b {
+        stroke: var(--color-hud-amber);
+        stroke-width: 2;
+        stroke-dasharray: 94 1086;
+        opacity: 0.62;
+        animation: hud-spin 8s linear reverse infinite;
+    }
+
+    .arc--c {
+        stroke: var(--color-hud-violet);
+        stroke-width: 1.6;
+        stroke-dasharray: 72 870;
+        opacity: 0.5;
+        animation: hud-spin 17s linear infinite;
+    }
+
+    .ticks line {
+        stroke: #40f3ff6b;
+        stroke-width: 1.3;
+    }
+
+    .ticks line.is-major {
+        stroke: #e8fbffdb;
+        stroke-width: 2;
+    }
+
+    .comet {
+        fill: none;
+        stroke: #40f3ff8c;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+    }
+
+    .orb,
+    .orb-rim {
+        transform-origin: 260px 260px;
+        animation: hud-pulse 3.8s ease-in-out infinite;
+    }
+
+    .orb-rim {
+        fill: none;
+        stroke: #e8fbffc7;
+        stroke-width: 1.5;
+    }
+
+    .readout {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+        mix-blend-mode: screen;
+    }
+
+    .readout__brand {
+        margin-bottom: 1.8cqw;
+        font-family: var(--font-hud-mono);
+        font-size: 2.4cqw;
+        letter-spacing: 0.42em;
+        text-indent: 0.42em;
+        color: var(--color-hud-cyan-deep);
+    }
+
+    .readout__word {
+        font-size: 8.6cqw;
+        letter-spacing: 0.3em;
+        text-indent: 0.3em;
+        white-space: nowrap;
+        color: #effcff;
+        text-shadow: 0 0 28px #40f3ffe6;
+    }
+
+    .readout__caption {
+        max-width: 64cqw;
+        margin-top: 1.8cqw;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-family: var(--font-hud-mono);
+        font-size: 2.2cqw;
+        letter-spacing: 0.14em;
+        color: var(--color-hud-cyan-deep);
+    }
+
+    /* State is a data attribute so it can be flipped from a script with
+       `el.dataset.state = 'running'` without touching class lists. */
+    [data-state='running'] .arc--a {
+        animation-duration: 2.3s;
+    }
+
+    [data-state='running'] .orb,
+    [data-state='running'] .orb-rim {
+        animation-duration: 1.2s;
+    }
+
+    [data-state='speaking'] .arc--b {
+        stroke: var(--color-hud-violet);
+        animation-duration: 1.8s;
+    }
+
+    [data-state='listening'] .readout__word {
+        color: var(--color-hud-cyan);
+    }
+
+    [data-state='complete'] .readout__word {
+        color: var(--color-hud-green);
+        text-shadow: 0 0 28px #39f5a6cc;
+    }
+
+    [data-state='fault'] .readout__word {
+        color: var(--color-hud-red);
+        text-shadow: 0 0 28px #ff5d6ccc;
+    }
+</style>
