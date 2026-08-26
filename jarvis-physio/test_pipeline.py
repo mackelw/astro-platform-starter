@@ -169,6 +169,28 @@ class TestProgrammeGate(PipelineTestCase):
         notes = [n for item in prog["items"] for n in item["safety_notes"]]
         self.assertTrue(any("flexion" in n.lower() for n in notes))
 
+    def test_precaution_notes_are_exercise_specific(self):
+        """A plan-level precaution must not become a blanket note on everything."""
+        _, aid = self._approved_assessment()
+        prog = education.create_programme(self._approved_plan(aid))
+        notes = {i["exercise_id"]: i["safety_notes"] for i in prog["items"]}
+        # The glute bridge is a hip-extension movement: flexion does not apply.
+        self.assertEqual(
+            [n for n in notes["glute-bridge"] if "flexion" in n.lower()], [])
+        # The slump slider uses spinal flexion by design — it must never carry a
+        # blanket "avoid flexion" instruction that contradicts its own cues.
+        self.assertFalse(
+            any(n.lower().startswith("avoid end-range lumbar flexion")
+                for n in notes["nerve-glider"]))
+
+    def test_no_duplicate_safety_notes(self):
+        _, aid = self._approved_assessment()
+        prog = education.create_programme(self._approved_plan(aid))
+        for item in prog["items"]:
+            self.assertEqual(len(item["safety_notes"]),
+                             len(set(item["safety_notes"])),
+                             f"duplicate note on {item['exercise_id']}")
+
     def test_every_prescribed_exercise_is_cited(self):
         _, aid = self._approved_assessment()
         prog = education.create_programme(self._approved_plan(aid))

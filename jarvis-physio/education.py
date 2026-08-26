@@ -81,14 +81,25 @@ def _select_exercises(profile: str, precautions: list[str]) -> list[str]:
     return selected
 
 
+# Precaution keywords the library can give per-exercise guidance for.
+_PRECAUTION_KEYWORDS = ("flexion", "neurological")
+
+
 def _build_item(exercise_id: str, precautions: list[str]) -> dict:
     ex = lib.get_exercise(exercise_id)
     dosage = dict(ex["dosage_default"])
+    guidance = ex.get("precaution_guidance") or {}
     notes = []
-    if any("flexion" in p.lower() for p in precautions):
-        notes.append("Avoid end-range lumbar flexion during this exercise.")
+    # A precaution only produces a note where the exercise says what it means
+    # here. Pasting one generic line onto every exercise produced advice that
+    # was meaningless on some (walking) and self-contradictory on others (a
+    # slump slider deliberately uses spinal flexion).
+    for keyword in _PRECAUTION_KEYWORDS:
+        if any(keyword in p.lower() for p in precautions) and keyword in guidance:
+            notes.append(guidance[keyword])
     if dosage.get("caution"):
         notes.append(dosage.pop("caution"))
+    notes = list(dict.fromkeys(notes))   # never tell a patient the same thing twice
     return {
         "exercise_id": exercise_id,
         "name": ex["name"],

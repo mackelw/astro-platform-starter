@@ -34,6 +34,7 @@ through the database, so the audit log is the whole story.
 | Nothing sends | `followup.py` | Approval queues to an outbox. `send_queued()` refuses by design; only a real transport adapter may call `db.mark_sent()` |
 | Nothing publishes | `content.py` | The content agent has no publish path. Approval records sign-off; a human publishes manually |
 | Every health claim is cited | `knowledge_base.py` | Claims are assembled *from* cited entries, never written around them. Uncited drafts are flagged and cannot be approved |
+| Precautions are exercise-specific | `exercise_library.py`, `education.py` | Each exercise declares what a precaution means for it. A plan-level precaution never becomes a blanket note pasted onto exercises it does not apply to |
 
 ## Modules
 
@@ -91,13 +92,14 @@ cd jarvis-physio
 python3 -m unittest -b
 ```
 
-32 tests, each mapping to a gate above. They run against a throwaway database
+34 tests, each mapping to a gate above. They run against a throwaway database
 in a temp directory — they never touch `jarvis.db`.
 
 ## Adding to the clinic library
 
 - **Exercises** — add an entry to `exercise_library._EXERCISES`. Every exercise
-  needs cues, a default dosage, an education point, and an `evidence_ref` that
+  needs cues, a default dosage, an education point, a `precaution_guidance`
+  mapping (`{}` if no precaution changes it), and an `evidence_ref` that
   resolves in the knowledge base; `python3 exercise_library.py` validates this
   and lists what has no media yet.
 - **Media** — drop files into `library/media/<exercise-id>/`. They are picked up

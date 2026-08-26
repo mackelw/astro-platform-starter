@@ -18,6 +18,10 @@ _MEDIA_SUFFIXES = {".mp4", ".mov", ".webm", ".gif", ".jpg", ".jpeg", ".png", ".s
 
 # id -> definition. dosage_default may carry a "caution" key, which the
 # education agent lifts out into the programme's safety notes.
+#
+# precaution_guidance maps a precaution keyword to what it means FOR THIS
+# EXERCISE. An exercise a precaution does not affect simply omits the key, so
+# a plan-level precaution never becomes a blanket note pasted onto everything.
 _EXERCISES: dict[str, dict] = {
     "bird-dog": {
         "name": "Bird-dog",
@@ -34,6 +38,10 @@ _EXERCISES: dict[str, dict] = {
         "education_point": "Control beats effort here — a small, steady reach with "
                            "a still spine does more than a big wobbly one.",
         "evidence_ref": "NICE-NG59-exercise",
+        "precaution_guidance": {
+            "flexion": "Keep the spine neutral throughout — do not let the back "
+                       "round or sag as you reach.",
+        },
         "tags": ["low back pain", "motor control", "core"],
     },
     "glute-bridge": {
@@ -52,6 +60,7 @@ _EXERCISES: dict[str, dict] = {
         "education_point": "Strong hips take load off the lower back — this is the "
                            "exercise most people under-do.",
         "evidence_ref": "NICE-NG59-exercise",
+        "precaution_guidance": {},   # hip extension: a flexion precaution does not apply
         "tags": ["low back pain", "strength", "hip"],
     },
     "walking-programme": {
@@ -69,6 +78,10 @@ _EXERCISES: dict[str, dict] = {
         "education_point": "Consistency beats intensity. A short daily walk builds "
                            "tolerance faster than one long walk a week.",
         "evidence_ref": "Cochrane-graded-activity",
+        "precaution_guidance": {
+            "flexion": "Break up long periods of sitting on either side of your "
+                       "walk — sitting, not walking, is the flexion load here.",
+        },
         "tags": ["low back pain", "graded activity", "aerobic"],
     },
     "nerve-glider": {
@@ -89,6 +102,12 @@ _EXERCISES: dict[str, dict] = {
                            "not a stretch. If it makes the leg worse, stop and tell "
                            "your physiotherapist.",
         "evidence_ref": "Nerve-glide-sciatica",
+        "precaution_guidance": {
+            # This movement uses spinal flexion by design — a blanket "avoid
+            # flexion" note would contradict the exercise itself.
+            "flexion": "This glide uses controlled spinal flexion deliberately. "
+                       "Stay mid-range and pain-free rather than pushing into it.",
+        },
         "tags": ["sciatica", "neural mobilisation", "leg pain"],
     },
 }
@@ -147,6 +166,9 @@ def validate() -> list[str]:
             problems.append(f"{eid}: no cues")
         if not ex.get("education_point"):
             problems.append(f"{eid}: no education point")
+        if "precaution_guidance" not in ex:
+            problems.append(f"{eid}: no precaution_guidance mapping (use {{}} if "
+                            f"no precaution changes this exercise)")
     return problems
 
 
