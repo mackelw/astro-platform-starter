@@ -1,0 +1,4 @@
+# Local clinical database — never commit patient data
+jarvis.db
+__pycache__/
+*.pyc

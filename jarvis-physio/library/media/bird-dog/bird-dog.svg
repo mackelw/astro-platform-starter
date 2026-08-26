@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120" role="img"
+     aria-label="Bird-dog: quadruped position with opposite arm and leg extended">
+  <title>Bird-dog</title>
+  <rect width="240" height="120" fill="#f4f6f8"/>
+  <line x1="20" y1="100" x2="220" y2="100" stroke="#c3cad2" stroke-width="2"/>
+  <g fill="none" stroke="#1f3a5f" stroke-width="4" stroke-linecap="round">
+    <!-- torso, level spine -->
+    <line x1="90" y1="52" x2="150" y2="52"/>
+    <!-- supporting arm and leg -->
+    <line x1="90" y1="52" x2="86" y2="100"/>
+    <line x1="150" y1="52" x2="154" y2="100"/>
+    <!-- extended arm forward, extended opposite leg back -->
+    <line x1="90" y1="52" x2="46" y2="40"/>
+    <line x1="150" y1="52" x2="196" y2="42"/>
+    <!-- head -->
+    <circle cx="80" cy="56" r="9" fill="#1f3a5f"/>
+  </g>
+  <text x="120" y="116" font-family="system-ui,sans-serif" font-size="10"
+        fill="#5a6672" text-anchor="middle">Keep the spine still as you reach</text>
+</svg>
