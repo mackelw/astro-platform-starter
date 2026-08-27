@@ -1,0 +1,17 @@
+{
+  "chief_complaint": "Low back pain radiating into the right leg, 3 weeks",
+  "history": {
+    "onset": "gradual, 3 weeks ago",
+    "mechanism": "no specific injury; started after a long car trip",
+    "pmh": "none significant",
+    "medications": "ibuprofen PRN",
+    "previous_treatment": "none yet"
+  },
+  "posture_gait_rom": {
+    "posture": "mild lumbar flexion bias in standing",
+    "gait": "antalgic on the right",
+    "rom": {"lumbar flexion": 55, "lumbar extension": 15, "right SLR": 60},
+    "strength": "5/5 all lower limb groups except R ankle dorsiflexion 4/5",
+    "special_tests": ["SLR positive right at 60 degrees"]
+  }
+}

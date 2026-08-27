@@ -2,3 +2,6 @@
 jarvis.db
 __pycache__/
 *.pyc
+
+# Voice/HUD runtime
+*.log

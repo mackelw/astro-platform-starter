@@ -1,0 +1,16 @@
+{
+  "chief_complaint": "Severe low back pain with saddle numbness since yesterday",
+  "history": {
+    "onset": "sudden, 1 day ago",
+    "mechanism": "lifting at work",
+    "pmh": "history of cancer (breast, 2019)",
+    "medications": "codeine"
+  },
+  "posture_gait_rom": {
+    "posture": "guarded",
+    "gait": "unable to weight-bear fully",
+    "rom": {"lumbar flexion": 20},
+    "strength": "leg weakness right, progressive neurological deficit",
+    "special_tests": ["reduced perianal sensation"]
+  }
+}
