@@ -7,9 +7,19 @@ import Footer from '../components/Footer.astro';
 
 interface Props {
     title: string;
+    description?: string;
+    noindex?: boolean;
 }
 
-const { title } = Astro.props;
+const { title, description = 'Range Physio Hurghada', noindex = false } = Astro.props;
+
+// Astro.site comes from `site` in astro.config.mjs, so canonical URLs point at
+// the real domain even when the page is served from a Netlify preview URL.
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+
+// Only needed for the HTML-tag verification method. A Search Console *domain*
+// property is verified over DNS instead, in which case leave this unset.
+const googleSiteVerification = import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION;
 ---
 
 <!doctype html>
@@ -17,8 +27,17 @@ const { title } = Astro.props;
     <head>
         <meta charset="UTF-8" />
         <title>{title}</title>
+        <meta name="description" content={description} />
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
+        <link rel="canonical" href={canonicalURL} />
+        {noindex && <meta name="robots" content="noindex, nofollow" />}
+        {googleSiteVerification && <meta name="google-site-verification" content={googleSiteVerification} />}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={canonicalURL} />
+        <meta name="twitter:card" content="summary_large_image" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="preload" as="font" type="font/woff2" href={interWoff2} crossorigin />
     </head>

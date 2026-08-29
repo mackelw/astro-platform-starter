@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Server-rendered endpoints hold no indexable content.
+Disallow: /api/
+
+Sitemap: https://rangephysiohurghada.com/sitemap-index.xml
