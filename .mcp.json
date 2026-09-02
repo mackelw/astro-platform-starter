@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "whisper": {
+      "command": "uvx",
+      "args": ["--with", "mcp<2", "mcp-server-whisper==1.1.0"],
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "AUDIO_FILES_PATH": "${AUDIO_FILES_PATH}"
+      }
+    }
+  }
+}
