@@ -15,7 +15,7 @@ type ItemOf = {
     expenses: Expense;
 };
 
-type Status = 'loading' | 'setup' | 'login' | 'ready';
+type Status = 'loading' | 'setup' | 'login' | 'ready' | 'error';
 
 interface StoreValue {
     db: Database;
@@ -100,9 +100,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setDb(normalize(info.db));
             setStatus('ready');
         } catch (err) {
-            handleFailure(err);
+            // تعذر الوصول للسيرفر: نعرض السبب وزر إعادة المحاولة بدل شاشة تحميل لا تنتهي
+            if (err instanceof ApiError && err.status === 401) {
+                setStatus('login');
+                setUser(null);
+                return;
+            }
+            setStatus('error');
+            setError(err instanceof Error ? err.message : 'تعذر الاتصال بالسيرفر');
         }
-    }, [isLocal, handleFailure]);
+    }, [isLocal]);
 
     useEffect(() => {
         void refresh();

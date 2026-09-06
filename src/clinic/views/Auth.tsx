@@ -133,6 +133,31 @@ export function SetupScreen() {
     );
 }
 
+export function ErrorScreen() {
+    const { error, refresh } = useStore();
+    const [busy, setBusy] = useState(false);
+
+    const retry = async () => {
+        setBusy(true);
+        await refresh();
+        setBusy(false);
+    };
+
+    return (
+        <AuthShell title="تعذر الاتصال بالسيرفر" subtitle="البرنامج لم يستطع الوصول إلى بيانات المركز">
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error || 'تعذر الوصول إلى السيرفر'}</p>
+            <ul className="mt-3 space-y-1.5 text-xs leading-relaxed text-slate-600">
+                <li>• تأكد من اتصال الجهاز بالشبكة أو الإنترنت.</li>
+                <li>• لو البرنامج يعمل على جهاز داخل المركز، تأكد أن نافذة التشغيل ما زالت مفتوحة.</li>
+                <li>• إن استمرت المشكلة بعد إعادة المحاولة، أبلغ المسؤول التقني بالرسالة الظاهرة أعلاه.</li>
+            </ul>
+            <Button className="mt-4 w-full" onClick={() => void retry()} disabled={busy}>
+                {busy ? 'جارٍ المحاولة…' : 'إعادة المحاولة'}
+            </Button>
+        </AuthShell>
+    );
+}
+
 export function LoadingScreen() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100">

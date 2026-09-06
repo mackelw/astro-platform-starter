@@ -21,7 +21,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         throw new ApiError('تعذر الاتصال بالسيرفر — تأكد من الشبكة', 0);
     }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError((body as { error?: string }).error ?? 'حدث خطأ غير متوقع', response.status);
+    if (!response.ok) {
+        // ذكر كود الخطأ يساعد على تشخيص مشاكل النشر (404 = خدمة السيرفر غير منشورة)
+        const fallback = response.status === 404 ? 'لم يتم العثور على خدمة السيرفر (404)' : `تعذر الوصول للسيرفر (كود ${response.status})`;
+        throw new ApiError((body as { error?: string }).error ?? fallback, response.status);
+    }
     return body as T;
 }
 

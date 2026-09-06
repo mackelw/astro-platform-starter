@@ -10,7 +10,7 @@ import SessionsView from './views/Sessions';
 import Billing from './views/Billing';
 import Reports from './views/Reports';
 import Settings from './views/Settings';
-import { LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
+import { ErrorScreen, LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
 import { formatDateLong, todayISO } from './utils';
 
 type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
@@ -178,12 +178,18 @@ function Shell() {
 function Gate() {
     const { status } = useStore();
     if (status === 'loading') return <LoadingScreen />;
+    if (status === 'error') return <ErrorScreen />;
     if (status === 'setup') return <SetupScreen />;
     if (status === 'login') return <LoginScreen />;
     return <Shell />;
 }
 
 export default function ClinicApp() {
+    // إزالة رسالة الإقلاع بمجرد أن يعمل التطبيق فعلًا
+    useEffect(() => {
+        document.getElementById('clinic-boot')?.remove();
+    }, []);
+
     return (
         <StoreProvider>
             <Gate />
