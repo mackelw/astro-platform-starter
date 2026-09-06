@@ -1,0 +1,38 @@
+---
+import '../styles/globals.css';
+
+interface Props {
+    title?: string;
+    description?: string;
+}
+
+const { title = 'نظام إدارة عيادة العلاج الطبيعي', description = 'برنامج محلي لإدارة مواعيد وجلسات وحسابات عيادة العلاج الطبيعي — يعمل داخل المتصفح بدون إنترنت.' } =
+    Astro.props;
+---
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="generator" content={Astro.generator} />
+        <meta name="theme-color" content="#0d9488" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <style is:global>
+            body {
+                font-family: 'Segoe UI', Tahoma, 'Noto Naskh Arabic', 'Dubai', 'Cairo', Arial, sans-serif;
+            }
+            /* الخانات الزمنية والتواريخ تُقرأ أفضل من اليسار لليمين */
+            input[type='date'],
+            input[type='time'] {
+                direction: ltr;
+                text-align: right;
+            }
+        </style>
+    </head>
+    <body class="bg-slate-100 text-slate-800 antialiased">
+        <slot />
+    </body>
+</html>
