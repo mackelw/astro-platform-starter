@@ -15,7 +15,7 @@ import {
     todayISO
 } from '../utils';
 
-function Stat({ label, value, sub, tone = 'teal' }: { label: string; value: string; sub?: string; tone?: string }) {
+function Stat({ label, value, sub, tone = 'teal', className = '' }: { label: string; value: string; sub?: string; tone?: string; className?: string }) {
     const tones: Record<string, string> = {
         teal: 'bg-teal-50 text-teal-700',
         sky: 'bg-sky-50 text-sky-700',
@@ -24,7 +24,7 @@ function Stat({ label, value, sub, tone = 'teal' }: { label: string; value: stri
         slate: 'bg-slate-100 text-slate-700'
     };
     return (
-        <Card className="p-4">
+        <Card className={`p-4 ${className}`}>
             <p className="text-xs font-semibold text-slate-500">{label}</p>
             <p className="mt-2 text-2xl font-extrabold text-slate-800">{value}</p>
             {sub ? <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-[11px] font-semibold ${tones[tone]}`}>{sub}</span> : null}
@@ -81,7 +81,13 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                             tone="teal"
                             sub={`مصروفات ${money(stats.monthExpenses, currency)}`}
                         />
-                        <Stat label="مستحقات غير محصّلة" value={money(stats.totalDue, currency)} tone="rose" sub={`${stats.dues.length} مريض`} />
+                        <Stat
+                            label="مستحقات غير محصّلة"
+                            value={money(stats.totalDue, currency)}
+                            tone="rose"
+                            sub={`${stats.dues.length} مريض`}
+                            className="col-span-2 lg:col-span-1"
+                        />
                     </>
                 ) : null}
             </div>
