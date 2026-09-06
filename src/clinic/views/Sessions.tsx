@@ -40,7 +40,7 @@ export default function Sessions({ onOpenPatient }: { onOpenPatient: (id: string
                 s.notes
             ])
         ];
-        downloadFile(`sessions-${from}_${to}.csv`, toCSV(data), 'text/csv;charset=utf-8');
+        void downloadFile(`sessions-${from}_${to}.csv`, toCSV(data), 'text/csv;charset=utf-8');
     };
 
     return (

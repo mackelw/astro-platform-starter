@@ -71,7 +71,7 @@ export default function Settings() {
     const fileRef = useRef<HTMLInputElement>(null);
 
     const backup = () => {
-        downloadFile(`clinic-backup-${todayISO()}.json`, JSON.stringify(db, null, 2));
+        void downloadFile(`clinic-backup-${todayISO()}.json`, JSON.stringify(db, null, 2));
         setMessage('تم تنزيل نسخة احتياطية من كل البيانات.');
     };
 

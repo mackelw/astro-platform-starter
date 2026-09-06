@@ -143,7 +143,7 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
                 return [p.code, p.name, p.phone, genderLabels[p.gender], p.birthDate, p.diagnosis, count, bal.due];
             })
         ];
-        downloadFile(`patients-${todayISO()}.csv`, toCSV(data), 'text/csv;charset=utf-8');
+        void downloadFile(`patients-${todayISO()}.csv`, toCSV(data), 'text/csv;charset=utf-8');
     };
 
     return (

@@ -98,7 +98,7 @@ export default function Billing({ onOpenPatient }: { onOpenPatient: (id: string)
             ['التاريخ', 'المريض', 'المبلغ', 'الطريقة', 'ملاحظات'],
             ...payments.map((p) => [formatDate(p.date), patientName(db, p.patientId), p.amount, methodLabels[p.method], p.notes])
         ];
-        downloadFile(`payments-${from}_${to}.csv`, toCSV(data), 'text/csv;charset=utf-8');
+        void downloadFile(`payments-${from}_${to}.csv`, toCSV(data), 'text/csv;charset=utf-8');
     };
 
     return (

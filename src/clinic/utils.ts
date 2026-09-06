@@ -117,7 +117,28 @@ export function searchPatients(patients: Patient[], query: string): Patient[] {
     return patients.filter((p) => [p.name, p.phone, p.code, p.diagnosis].join(' ').toLowerCase().includes(q));
 }
 
-export function downloadFile(filename: string, content: string, type = 'application/json;charset=utf-8'): void {
+declare global {
+    interface Window {
+        claude?: { use?: (name: string) => Promise<{ save?: (request: { filename: string; data: string }) => Promise<unknown> } | null> };
+    }
+}
+
+/**
+ * تنزيل ملف من المتصفح. داخل صفحة Artifact على claude.ai لا تعمل روابط
+ * التنزيل العادية، فنستخدم واجهة الحفظ التي توفرها المنصة إن وُجدت.
+ */
+export async function downloadFile(filename: string, content: string, type = 'application/json;charset=utf-8'): Promise<void> {
+    try {
+        const downloads = await window.claude?.use?.('downloads');
+        if (downloads?.save) {
+            await downloads.save({ filename, data: content });
+            return;
+        }
+    } catch {
+        // المستخدم رفض الحفظ أو الواجهة غير متاحة — نكمل بالطريقة العادية
+        return;
+    }
+
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
