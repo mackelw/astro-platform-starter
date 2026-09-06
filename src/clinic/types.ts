@@ -83,6 +83,7 @@ export interface Expense {
 
 export interface ClinicSettings {
     name: string;
+    doctorName: string; // اسم الطبيب المسؤول - يظهر في الترويسة والتقارير المطبوعة
     phone: string;
     address: string;
     currency: string;

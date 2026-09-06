@@ -76,7 +76,7 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
         printHTML(
             `كشف حساب - ${patient.name}`,
             `<div class="head">
-                <div><h1>${escapeHtml(db.settings.name)}</h1><p class="muted">${escapeHtml(db.settings.address)} ${db.settings.phone ? '— هاتف: ' + escapeHtml(db.settings.phone) : ''}</p></div>
+                <div><h1>${escapeHtml(db.settings.name)}</h1>${db.settings.doctorName ? `<p class="muted">${escapeHtml(db.settings.doctorName)}</p>` : ''}<p class="muted">${escapeHtml(db.settings.address)} ${db.settings.phone ? '— هاتف: ' + escapeHtml(db.settings.phone) : ''}</p></div>
                 <div style="text-align:left"><p class="muted">كشف حساب</p><p class="muted">${escapeHtml(formatDate(new Date().toISOString().slice(0, 10)))}</p></div>
             </div>
             <h2>بيانات المريض</h2>
@@ -99,7 +99,7 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
         printHTML(
             `تقرير جلسة - ${patient.name}`,
             `<div class="head">
-                <div><h1>${escapeHtml(db.settings.name)}</h1><p class="muted">تقرير جلسة علاج طبيعي</p></div>
+                <div><h1>${escapeHtml(db.settings.name)}</h1><p class="muted">تقرير جلسة علاج طبيعي${db.settings.doctorName ? ' — ' + escapeHtml(db.settings.doctorName) : ''}</p></div>
                 <div style="text-align:left"><p class="muted">${escapeHtml(formatDate(s.date))}</p></div>
             </div>
             <p class="muted">المريض: <b>${escapeHtml(patient.name)}</b> (${escapeHtml(patient.code)}) — الأخصائي: ${escapeHtml(therapistName(db, s.therapistId))}</p>

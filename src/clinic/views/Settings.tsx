@@ -100,6 +100,13 @@ export default function Settings() {
                     <Field label="اسم العيادة">
                         <Input value={db.settings.name} onChange={(e) => updateSettings({ name: e.target.value })} />
                     </Field>
+                    <Field label="اسم الطبيب المسؤول">
+                        <Input
+                            value={db.settings.doctorName}
+                            onChange={(e) => updateSettings({ doctorName: e.target.value })}
+                            placeholder="مثال: د. مايكل مجدي"
+                        />
+                    </Field>
                     <Field label="الهاتف">
                         <Input value={db.settings.phone} onChange={(e) => updateSettings({ phone: e.target.value })} />
                     </Field>

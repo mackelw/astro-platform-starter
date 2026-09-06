@@ -7,7 +7,8 @@ export function emptyDatabase(): Database {
     return {
         version: DB_VERSION,
         settings: {
-            name: 'عيادة العلاج الطبيعي',
+            name: 'مركز رينج للعلاج الطبيعي والتأهيل',
+            doctorName: 'د. مايكل مجدي',
             phone: '',
             address: '',
             currency: 'ج.م',
@@ -38,11 +39,7 @@ function iso(daysFromToday: number): string {
 /** بيانات تجريبية تظهر عند أول تشغيل حتى لا تكون الشاشات فارغة */
 export function seedDatabase(): Database {
     const db = emptyDatabase();
-    db.settings.name = 'مركز الشفاء للعلاج الطبيعي';
-    db.settings.phone = '0100 000 0000';
-    db.settings.address = 'شارع الجمهورية - الدور الثاني';
-
-    const t1 = { id: uid('t_'), name: 'د. أحمد سمير', phone: '0111111111', specialty: 'إصابات ملاعب', active: true };
+    const t1 = { id: uid('t_'), name: 'د. مايكل مجدي', phone: '', specialty: 'علاج طبيعي وتأهيل', active: true };
     const t2 = { id: uid('t_'), name: 'د. منى خالد', phone: '0122222222', specialty: 'علاج طبيعي للعمود الفقري', active: true };
     db.therapists = [t1, t2];
 
@@ -207,6 +204,16 @@ export function normalize(raw: unknown): Database {
     };
 }
 
+const LEGACY_NAMES = ['عيادة العلاج الطبيعي', 'مركز الشفاء للعلاج الطبيعي'];
+
+/** أي نسخة محفوظة باسم افتراضي قديم تُحدَّث لاسم المركز الحالي */
+function migrate(db: Database): Database {
+    if (LEGACY_NAMES.includes(db.settings.name)) {
+        db.settings.name = emptyDatabase().settings.name;
+    }
+    return db;
+}
+
 export function loadDatabase(): Database {
     if (typeof window === 'undefined') return emptyDatabase();
     try {
@@ -216,7 +223,7 @@ export function loadDatabase(): Database {
             saveDatabase(seeded);
             return seeded;
         }
-        return normalize(JSON.parse(raw));
+        return migrate(normalize(JSON.parse(raw)));
     } catch {
         return emptyDatabase();
     }

@@ -95,7 +95,7 @@ function Shell() {
                         <div className="flex size-9 items-center justify-center rounded-lg bg-teal-600 text-lg text-white">✚</div>
                         <div>
                             <p className="text-sm font-extrabold text-slate-800">{db.settings.name}</p>
-                            <p className="text-[11px] text-slate-500">نظام إدارة عيادة العلاج الطبيعي</p>
+                            <p className="text-[11px] text-slate-500">{db.settings.doctorName || 'نظام إدارة عيادة العلاج الطبيعي'}</p>
                         </div>
                     </div>
                     <div className="hidden items-center gap-3 sm:flex">
