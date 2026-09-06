@@ -61,7 +61,7 @@ function ExpenseForm({ open, onClose, editing }: { open: boolean; onClose: () =>
 }
 
 export default function Billing({ onOpenPatient }: { onOpenPatient: (id: string) => void }) {
-    const { db, remove } = useStore();
+    const { db, remove, can } = useStore();
     const [tab, setTab] = useState<'dues' | 'payments' | 'expenses'>('dues');
     const [from, setFrom] = useState(addDays(todayISO(), -30));
     const [to, setTo] = useState(todayISO());
@@ -109,23 +109,27 @@ export default function Billing({ onOpenPatient }: { onOpenPatient: (id: string)
                     <p className="mt-1 text-sm text-slate-500">التحصيل والمصروفات والمستحقات</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button
-                        variant="secondary"
-                        onClick={() => {
-                            setEditingExpense(null);
-                            setExpenseOpen(true);
-                        }}
-                    >
-                        + مصروف
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            setEditingPayment(null);
-                            setPaymentOpen(true);
-                        }}
-                    >
-                        + دفعة
-                    </Button>
+                    {can('expenses', 'create') ? (
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                setEditingExpense(null);
+                                setExpenseOpen(true);
+                            }}
+                        >
+                            + مصروف
+                        </Button>
+                    ) : null}
+                    {can('payments', 'create') ? (
+                        <Button
+                            onClick={() => {
+                                setEditingPayment(null);
+                                setPaymentOpen(true);
+                            }}
+                        >
+                            + دفعة
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
@@ -239,23 +243,27 @@ export default function Billing({ onOpenPatient }: { onOpenPatient: (id: string)
                                     <Td className="text-slate-500">{p.notes || '—'}</Td>
                                     <Td className="text-left">
                                         <div className="flex justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs"
-                                                onClick={() => {
-                                                    setEditingPayment(p);
-                                                    setPaymentOpen(true);
-                                                }}
-                                            >
-                                                تعديل
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                                onClick={() => window.confirm('حذف هذه الدفعة؟') && remove('payments', p.id)}
-                                            >
-                                                حذف
-                                            </Button>
+                                            {can('payments', 'update') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs"
+                                                    onClick={() => {
+                                                        setEditingPayment(p);
+                                                        setPaymentOpen(true);
+                                                    }}
+                                                >
+                                                    تعديل
+                                                </Button>
+                                            ) : null}
+                                            {can('payments', 'delete') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                    onClick={() => window.confirm('حذف هذه الدفعة؟') && remove('payments', p.id)}
+                                                >
+                                                    حذف
+                                                </Button>
+                                            ) : null}
                                         </div>
                                     </Td>
                                 </tr>
@@ -277,23 +285,27 @@ export default function Billing({ onOpenPatient }: { onOpenPatient: (id: string)
                                     <Td className="font-bold text-amber-600">{money(e.amount, currency)}</Td>
                                     <Td className="text-left">
                                         <div className="flex justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs"
-                                                onClick={() => {
-                                                    setEditingExpense(e);
-                                                    setExpenseOpen(true);
-                                                }}
-                                            >
-                                                تعديل
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                                onClick={() => window.confirm('حذف هذا المصروف؟') && remove('expenses', e.id)}
-                                            >
-                                                حذف
-                                            </Button>
+                                            {can('expenses', 'update') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs"
+                                                    onClick={() => {
+                                                        setEditingExpense(e);
+                                                        setExpenseOpen(true);
+                                                    }}
+                                                >
+                                                    تعديل
+                                                </Button>
+                                            ) : null}
+                                            {can('expenses', 'delete') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                    onClick={() => window.confirm('حذف هذا المصروف؟') && remove('expenses', e.id)}
+                                                >
+                                                    حذف
+                                                </Button>
+                                            ) : null}
                                         </div>
                                     </Td>
                                 </tr>

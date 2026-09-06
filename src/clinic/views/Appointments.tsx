@@ -6,7 +6,7 @@ import { Badge, Button, Card, EmptyState, Input, Select, Table, Td } from '../co
 import { addDays, formatDateLong, formatTime, patientName, sortAppointments, statusClasses, statusLabels, therapistName, todayISO } from '../utils';
 
 export default function Appointments({ onOpenPatient }: { onOpenPatient: (id: string) => void }) {
-    const { db, update, remove } = useStore();
+    const { db, update, remove, can } = useStore();
     const [date, setDate] = useState(todayISO());
     const [therapistFilter, setTherapistFilter] = useState('');
     const [formOpen, setFormOpen] = useState(false);
@@ -32,14 +32,16 @@ export default function Appointments({ onOpenPatient }: { onOpenPatient: (id: st
                     <h2 className="text-xl font-extrabold text-slate-800">المواعيد</h2>
                     <p className="mt-1 text-sm text-slate-500">{formatDateLong(date)}</p>
                 </div>
-                <Button
-                    onClick={() => {
-                        setEditing(null);
-                        setFormOpen(true);
-                    }}
-                >
-                    + حجز موعد
-                </Button>
+                {can('appointments', 'create') ? (
+                    <Button
+                        onClick={() => {
+                            setEditing(null);
+                            setFormOpen(true);
+                        }}
+                    >
+                        + حجز موعد
+                    </Button>
+                ) : null}
             </div>
 
             <Card className="p-3">
@@ -90,7 +92,10 @@ export default function Appointments({ onOpenPatient }: { onOpenPatient: (id: st
 
             <Card>
                 {dayAppointments.length === 0 ? (
-                    <EmptyState title="لا توجد مواعيد في هذا اليوم" action={<Button onClick={() => setFormOpen(true)}>حجز موعد</Button>} />
+                    <EmptyState
+                        title="لا توجد مواعيد في هذا اليوم"
+                        action={can('appointments', 'create') ? <Button onClick={() => setFormOpen(true)}>حجز موعد</Button> : undefined}
+                    />
                 ) : (
                     <Table head={['الوقت', 'المريض', 'الأخصائي', 'المدة', 'الحالة', 'ملاحظات', '']}>
                         {dayAppointments.map((a) => (
@@ -115,10 +120,12 @@ export default function Appointments({ onOpenPatient }: { onOpenPatient: (id: st
                                 </Td>
                                 <Td className="text-left">
                                     <div className="flex flex-wrap justify-end gap-1">
-                                        <Button variant="subtle" className="px-2 py-1 text-xs" onClick={() => setSessionFrom(a)}>
-                                            تسجيل جلسة
-                                        </Button>
-                                        {a.status === 'scheduled' ? (
+                                        {can('sessions', 'create') ? (
+                                            <Button variant="subtle" className="px-2 py-1 text-xs" onClick={() => setSessionFrom(a)}>
+                                                تسجيل جلسة
+                                            </Button>
+                                        ) : null}
+                                        {a.status === 'scheduled' && can('appointments', 'update') ? (
                                             <>
                                                 <Button
                                                     variant="ghost"
@@ -136,23 +143,27 @@ export default function Appointments({ onOpenPatient }: { onOpenPatient: (id: st
                                                 </Button>
                                             </>
                                         ) : null}
-                                        <Button
-                                            variant="ghost"
-                                            className="px-2 py-1 text-xs"
-                                            onClick={() => {
-                                                setEditing(a);
-                                                setFormOpen(true);
-                                            }}
-                                        >
-                                            تعديل
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                            onClick={() => window.confirm('حذف هذا الموعد؟') && remove('appointments', a.id)}
-                                        >
-                                            حذف
-                                        </Button>
+                                        {can('appointments', 'update') ? (
+                                            <Button
+                                                variant="ghost"
+                                                className="px-2 py-1 text-xs"
+                                                onClick={() => {
+                                                    setEditing(a);
+                                                    setFormOpen(true);
+                                                }}
+                                            >
+                                                تعديل
+                                            </Button>
+                                        ) : null}
+                                        {can('appointments', 'delete') ? (
+                                            <Button
+                                                variant="ghost"
+                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                onClick={() => window.confirm('حذف هذا الموعد؟') && remove('appointments', a.id)}
+                                            >
+                                                حذف
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </Td>
                             </tr>

@@ -33,7 +33,7 @@ function Stat({ label, value, sub, tone = 'teal' }: { label: string; value: stri
 }
 
 export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id: string) => void; onGo: (view: string) => void }) {
-    const { db, update } = useStore();
+    const { db, update, can } = useStore();
     const today = todayISO();
     const currency = db.settings.currency;
 
@@ -64,7 +64,7 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                 <p className="mt-1 text-sm text-slate-500">{formatDateLong(today)}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <div className={`grid grid-cols-2 gap-3 ${can('payments', 'read') ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}>
                 <Stat label="المرضى النشطون" value={String(stats.active.length)} sub={`إجمالي الملفات ${db.patients.length}`} />
                 <Stat
                     label="مواعيد اليوم"
@@ -73,8 +73,17 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                     tone="sky"
                 />
                 <Stat label="جلسات هذا الشهر" value={String(stats.monthSessions.length)} tone="slate" sub={`${db.sessions.length} جلسة إجمالًا`} />
-                <Stat label="تحصيل هذا الشهر" value={money(stats.monthIncome, currency)} tone="teal" sub={`مصروفات ${money(stats.monthExpenses, currency)}`} />
-                <Stat label="مستحقات غير محصّلة" value={money(stats.totalDue, currency)} tone="rose" sub={`${stats.dues.length} مريض`} />
+                {can('payments', 'read') ? (
+                    <>
+                        <Stat
+                            label="تحصيل هذا الشهر"
+                            value={money(stats.monthIncome, currency)}
+                            tone="teal"
+                            sub={`مصروفات ${money(stats.monthExpenses, currency)}`}
+                        />
+                        <Stat label="مستحقات غير محصّلة" value={money(stats.totalDue, currency)} tone="rose" sub={`${stats.dues.length} مريض`} />
+                    </>
+                ) : null}
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
@@ -113,7 +122,7 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                                         <Badge className={statusClasses[a.status]}>{statusLabels[a.status]}</Badge>
                                     </Td>
                                     <Td className="text-left">
-                                        {a.status === 'scheduled' ? (
+                                        {a.status === 'scheduled' && can('appointments', 'update') ? (
                                             <div className="flex justify-end gap-1">
                                                 <Button
                                                     variant="subtle"
@@ -139,27 +148,29 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                 </Card>
 
                 <div className="space-y-5">
-                    <Card>
-                        <CardHeader title="أعلى المستحقات" subtitle="مرضى عليهم مبالغ غير مسددة" />
-                        {stats.dues.length === 0 ? (
-                            <EmptyState title="لا توجد مستحقات متأخرة" />
-                        ) : (
-                            <ul className="divide-y divide-slate-100">
-                                {stats.dues.slice(0, 5).map((row) => (
-                                    <li key={row.patient.id} className="flex items-center justify-between px-4 py-2.5">
-                                        <button
-                                            type="button"
-                                            className="cursor-pointer text-sm font-semibold text-slate-700 hover:text-teal-700"
-                                            onClick={() => onOpenPatient(row.patient.id)}
-                                        >
-                                            {row.patient.name}
-                                        </button>
-                                        <span className="text-sm font-bold text-rose-600">{money(row.due, currency)}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Card>
+                    {can('payments', 'read') ? (
+                        <Card>
+                            <CardHeader title="أعلى المستحقات" subtitle="مرضى عليهم مبالغ غير مسددة" />
+                            {stats.dues.length === 0 ? (
+                                <EmptyState title="لا توجد مستحقات متأخرة" />
+                            ) : (
+                                <ul className="divide-y divide-slate-100">
+                                    {stats.dues.slice(0, 5).map((row) => (
+                                        <li key={row.patient.id} className="flex items-center justify-between px-4 py-2.5">
+                                            <button
+                                                type="button"
+                                                className="cursor-pointer text-sm font-semibold text-slate-700 hover:text-teal-700"
+                                                onClick={() => onOpenPatient(row.patient.id)}
+                                            >
+                                                {row.patient.name}
+                                            </button>
+                                            <span className="text-sm font-bold text-rose-600">{money(row.due, currency)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Card>
+                    ) : null}
 
                     <Card>
                         <CardHeader title="مواعيد قادمة" />

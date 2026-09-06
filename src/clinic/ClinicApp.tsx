@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StoreProvider, useStore } from './store';
+import { MODE } from './api';
+import { ROLE_LABELS } from './permissions';
 import Dashboard from './views/Dashboard';
 import Patients from './views/Patients';
 import PatientProfile from './views/PatientProfile';
@@ -8,6 +10,7 @@ import SessionsView from './views/Sessions';
 import Billing from './views/Billing';
 import Reports from './views/Reports';
 import Settings from './views/Settings';
+import { LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
 import { formatDateLong, todayISO } from './utils';
 
 type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
@@ -27,10 +30,13 @@ function isView(value: string): value is View {
 }
 
 function Shell() {
-    const { db } = useStore();
+    const { db, user, can, error, clearError, signOut } = useStore();
     const [view, setView] = useState<View>('dashboard');
     const [patientId, setPatientId] = useState<string | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
+
+    // الشاشات المالية تختفي تمامًا لمن لا يملك صلاحيتها
+    const nav = useMemo(() => NAV.filter((item) => (item.key === 'billing' || item.key === 'reports' ? can('payments', 'read') : true)), [can]);
 
     // حفظ الصفحة الحالية في عنوان المتصفح حتى يعمل زر الرجوع والتحديث
     useEffect(() => {
@@ -69,14 +75,16 @@ function Shell() {
         window.location.hash = 'patients';
     };
 
+    const allowed = nav.some((item) => item.key === view) ? view : 'dashboard';
+
     let content: React.ReactNode = null;
     if (patientId) content = <PatientProfile patientId={patientId} onBack={backToPatients} />;
-    else if (view === 'dashboard') content = <Dashboard onOpenPatient={openPatient} onGo={(v) => go(v as View)} />;
-    else if (view === 'appointments') content = <Appointments onOpenPatient={openPatient} />;
-    else if (view === 'patients') content = <Patients onOpenPatient={openPatient} />;
-    else if (view === 'sessions') content = <SessionsView onOpenPatient={openPatient} />;
-    else if (view === 'billing') content = <Billing onOpenPatient={openPatient} />;
-    else if (view === 'reports') content = <Reports />;
+    else if (allowed === 'dashboard') content = <Dashboard onOpenPatient={openPatient} onGo={(v) => go(v as View)} />;
+    else if (allowed === 'appointments') content = <Appointments onOpenPatient={openPatient} />;
+    else if (allowed === 'patients') content = <Patients onOpenPatient={openPatient} />;
+    else if (allowed === 'sessions') content = <SessionsView onOpenPatient={openPatient} />;
+    else if (allowed === 'billing') content = <Billing onOpenPatient={openPatient} />;
+    else if (allowed === 'reports') content = <Reports />;
     else content = <Settings />;
 
     return (
@@ -98,11 +106,38 @@ function Shell() {
                             <p className="text-[11px] text-slate-500">{db.settings.doctorName || 'نظام إدارة عيادة العلاج الطبيعي'}</p>
                         </div>
                     </div>
-                    <div className="hidden items-center gap-3 sm:flex">
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">يعمل محليًا بدون إنترنت</span>
-                        <span className="text-xs text-slate-500">{formatDateLong(todayISO())}</span>
+                    <div className="flex items-center gap-3">
+                        {MODE === 'local' ? (
+                            <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline">
+                                يعمل محليًا بدون إنترنت
+                            </span>
+                        ) : null}
+                        <span className="hidden text-xs text-slate-500 lg:inline">{formatDateLong(todayISO())}</span>
+                        {user ? (
+                            <div className="flex items-center gap-2 border-r border-slate-200 pr-3">
+                                <div className="text-left">
+                                    <p className="text-xs font-bold text-slate-700">{user.name}</p>
+                                    <p className="text-[11px] text-slate-400">{ROLE_LABELS[user.role]}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => void signOut()}
+                                    className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                >
+                                    خروج
+                                </button>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
+                {error ? (
+                    <div className="flex items-center justify-between gap-3 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
+                        <span>{error}</span>
+                        <button type="button" onClick={clearError} className="cursor-pointer rounded px-2 hover:bg-rose-100" aria-label="إغلاق التنبيه">
+                            ✕
+                        </button>
+                    </div>
+                ) : null}
             </header>
 
             <div className="mx-auto flex max-w-7xl gap-5 px-4 py-5">
@@ -110,8 +145,8 @@ function Shell() {
                     className={`${menuOpen ? 'block' : 'hidden'} fixed inset-x-0 bottom-0 top-16 z-30 overflow-y-auto bg-white p-4 lg:static lg:block lg:w-56 lg:shrink-0 lg:bg-transparent lg:p-0`}
                 >
                     <nav className="space-y-1">
-                        {NAV.map((item) => {
-                            const active = !patientId && view === item.key;
+                        {nav.map((item) => {
+                            const active = !patientId && allowed === item.key;
                             return (
                                 <button
                                     key={item.key}
@@ -128,7 +163,9 @@ function Shell() {
                         })}
                     </nav>
                     <p className="mt-6 rounded-lg bg-white px-3 py-3 text-[11px] leading-relaxed text-slate-500 lg:bg-white/70">
-                        البيانات محفوظة في متصفح هذا الجهاز فقط. استخدم صفحة الإعدادات لأخذ نسخة احتياطية.
+                        {MODE === 'local'
+                            ? 'البيانات محفوظة في متصفح هذا الجهاز فقط. استخدم صفحة الإعدادات لأخذ نسخة احتياطية.'
+                            : 'البيانات محفوظة على سيرفر المركز ومشتركة بين كل الأجهزة.'}
                     </p>
                 </aside>
 
@@ -138,10 +175,18 @@ function Shell() {
     );
 }
 
+function Gate() {
+    const { status } = useStore();
+    if (status === 'loading') return <LoadingScreen />;
+    if (status === 'setup') return <SetupScreen />;
+    if (status === 'login') return <LoginScreen />;
+    return <Shell />;
+}
+
 export default function ClinicApp() {
     return (
         <StoreProvider>
-            <Shell />
+            <Gate />
         </StoreProvider>
     );
 }

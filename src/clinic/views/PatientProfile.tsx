@@ -30,7 +30,8 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function PatientProfile({ patientId, onBack }: { patientId: string; onBack: () => void }) {
-    const { db, remove } = useStore();
+    const { db, remove, can } = useStore();
+    const canSeeMoney = can('payments', 'read');
     const patient = db.patients.find((p) => p.id === patientId);
     const [tab, setTab] = useState<'sessions' | 'appointments' | 'payments'>('sessions');
     const [editOpen, setEditOpen] = useState(false);
@@ -131,31 +132,41 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => setSessionOpen(true)}>+ تسجيل جلسة</Button>
-                        <Button variant="secondary" onClick={() => setApptOpen(true)}>
-                            + حجز موعد
-                        </Button>
-                        <Button variant="secondary" onClick={() => setPaymentOpen(true)}>
-                            + دفعة
-                        </Button>
-                        <Button variant="secondary" onClick={printStatement}>
-                            طباعة كشف حساب
-                        </Button>
-                        <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                            تعديل الملف
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className="text-rose-600 hover:bg-rose-50"
-                            onClick={() => {
-                                if (window.confirm(`حذف ملف ${patient.name} نهائيًا مع كل سجلاته؟`)) {
-                                    remove('patients', patient.id);
-                                    onBack();
-                                }
-                            }}
-                        >
-                            حذف
-                        </Button>
+                        {can('sessions', 'create') ? <Button onClick={() => setSessionOpen(true)}>+ تسجيل جلسة</Button> : null}
+                        {can('appointments', 'create') ? (
+                            <Button variant="secondary" onClick={() => setApptOpen(true)}>
+                                + حجز موعد
+                            </Button>
+                        ) : null}
+                        {can('payments', 'create') ? (
+                            <Button variant="secondary" onClick={() => setPaymentOpen(true)}>
+                                + دفعة
+                            </Button>
+                        ) : null}
+                        {canSeeMoney ? (
+                            <Button variant="secondary" onClick={printStatement}>
+                                طباعة كشف حساب
+                            </Button>
+                        ) : null}
+                        {can('patients', 'update') ? (
+                            <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                                تعديل الملف
+                            </Button>
+                        ) : null}
+                        {can('patients', 'delete') ? (
+                            <Button
+                                variant="ghost"
+                                className="text-rose-600 hover:bg-rose-50"
+                                onClick={() => {
+                                    if (window.confirm(`حذف ملف ${patient.name} نهائيًا مع كل سجلاته؟`)) {
+                                        remove('patients', patient.id);
+                                        onBack();
+                                    }
+                                }}
+                            >
+                                حذف
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
 
@@ -199,7 +210,7 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                         [
                             ['sessions', `الجلسات (${data.sessions.length})`],
                             ['appointments', `المواعيد (${data.appointments.length})`],
-                            ['payments', `المدفوعات (${data.payments.length})`]
+                            ...(canSeeMoney ? ([['payments', `المدفوعات (${data.payments.length})`]] as const) : [])
                         ] as const
                     ).map(([key, label]) => (
                         <button
@@ -217,7 +228,10 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
 
                 {tab === 'sessions' ? (
                     data.sessions.length === 0 ? (
-                        <EmptyState title="لا توجد جلسات مسجلة" action={<Button onClick={() => setSessionOpen(true)}>تسجيل أول جلسة</Button>} />
+                        <EmptyState
+                            title="لا توجد جلسات مسجلة"
+                            action={can('sessions', 'create') ? <Button onClick={() => setSessionOpen(true)}>تسجيل أول جلسة</Button> : undefined}
+                        />
                     ) : (
                         <ul className="divide-y divide-slate-100">
                             {data.sessions.map((s) => (
@@ -226,7 +240,9 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="text-sm font-bold text-slate-800">{formatDate(s.date)}</span>
                                             <span className="text-xs text-slate-500">{therapistName(db, s.therapistId)}</span>
-                                            <Badge className="bg-slate-100 text-slate-600 ring-slate-200">{money(s.price, currency)}</Badge>
+                                            {canSeeMoney ? (
+                                                <Badge className="bg-slate-100 text-slate-600 ring-slate-200">{money(s.price, currency)}</Badge>
+                                            ) : null}
                                             <Badge className="bg-rose-50 text-rose-700 ring-rose-200">
                                                 ألم قبل {s.painBefore} · بعد {s.painAfter}
                                             </Badge>
@@ -235,23 +251,27 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                                             <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => printSession(s)}>
                                                 طباعة
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs"
-                                                onClick={() => {
-                                                    setEditingSession(s);
-                                                    setSessionOpen(true);
-                                                }}
-                                            >
-                                                تعديل
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                                onClick={() => window.confirm('حذف هذه الجلسة؟') && remove('sessions', s.id)}
-                                            >
-                                                حذف
-                                            </Button>
+                                            {can('sessions', 'update') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs"
+                                                    onClick={() => {
+                                                        setEditingSession(s);
+                                                        setSessionOpen(true);
+                                                    }}
+                                                >
+                                                    تعديل
+                                                </Button>
+                                            ) : null}
+                                            {can('sessions', 'delete') ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                    onClick={() => window.confirm('حذف هذه الجلسة؟') && remove('sessions', s.id)}
+                                                >
+                                                    حذف
+                                                </Button>
+                                            ) : null}
                                         </div>
                                     </div>
                                     {s.treatments.length ? <p className="mt-1.5 text-xs text-slate-600">الإجراءات: {s.treatments.join('، ')}</p> : null}
@@ -265,7 +285,10 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
 
                 {tab === 'appointments' ? (
                     data.appointments.length === 0 ? (
-                        <EmptyState title="لا توجد مواعيد" action={<Button onClick={() => setApptOpen(true)}>حجز موعد</Button>} />
+                        <EmptyState
+                            title="لا توجد مواعيد"
+                            action={can('appointments', 'create') ? <Button onClick={() => setApptOpen(true)}>حجز موعد</Button> : undefined}
+                        />
                     ) : (
                         <Table head={['التاريخ', 'الوقت', 'الأخصائي', 'الحالة', 'ملاحظات']}>
                             {data.appointments.map((a) => (
@@ -285,7 +308,10 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
 
                 {tab === 'payments' ? (
                     data.payments.length === 0 ? (
-                        <EmptyState title="لا توجد مدفوعات" action={<Button onClick={() => setPaymentOpen(true)}>تسجيل دفعة</Button>} />
+                        <EmptyState
+                            title="لا توجد مدفوعات"
+                            action={can('payments', 'create') ? <Button onClick={() => setPaymentOpen(true)}>تسجيل دفعة</Button> : undefined}
+                        />
                     ) : (
                         <Table head={['التاريخ', 'المبلغ', 'الطريقة', 'ملاحظات', '']}>
                             {data.payments.map((p) => (
@@ -295,13 +321,15 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                                     <Td>{methodLabels[p.method]}</Td>
                                     <Td className="text-slate-500">{p.notes || '—'}</Td>
                                     <Td className="text-left">
-                                        <Button
-                                            variant="ghost"
-                                            className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                            onClick={() => window.confirm('حذف هذه الدفعة؟') && remove('payments', p.id)}
-                                        >
-                                            حذف
-                                        </Button>
+                                        {can('payments', 'delete') ? (
+                                            <Button
+                                                variant="ghost"
+                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                onClick={() => window.confirm('حذف هذه الدفعة؟') && remove('payments', p.id)}
+                                            >
+                                                حذف
+                                            </Button>
+                                        ) : null}
                                     </Td>
                                 </tr>
                             ))}

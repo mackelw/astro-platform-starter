@@ -103,3 +103,24 @@ export interface Database {
     payments: Payment[];
     expenses: Expense[];
 }
+
+/* ------------------------- المستخدمون والصلاحيات ------------------------- */
+
+export type Role = 'admin' | 'reception' | 'therapist';
+
+export interface PublicUser {
+    id: ID;
+    username: string;
+    name: string;
+    role: Role;
+    therapistId: ID | ''; // ربط حساب الأخصائي بسجله في قائمة الأخصائيين
+    active: boolean;
+    lastLoginAt: string;
+    createdAt: string;
+}
+
+/** ما يعيده السيرفر للعميل بعد تسجيل الدخول */
+export interface SessionInfo {
+    user: PublicUser;
+    db: Database;
+}

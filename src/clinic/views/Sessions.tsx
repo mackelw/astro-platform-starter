@@ -6,7 +6,8 @@ import { Badge, Button, Card, EmptyState, Input, Select, Table, Td } from '../co
 import { addDays, downloadFile, formatDate, money, patientName, therapistName, toCSV, todayISO } from '../utils';
 
 export default function Sessions({ onOpenPatient }: { onOpenPatient: (id: string) => void }) {
-    const { db, remove } = useStore();
+    const { db, remove, can } = useStore();
+    const canSeeMoney = can('payments', 'read');
     const [from, setFrom] = useState(addDays(todayISO(), -30));
     const [to, setTo] = useState(todayISO());
     const [therapistFilter, setTherapistFilter] = useState('');
@@ -48,21 +49,23 @@ export default function Sessions({ onOpenPatient }: { onOpenPatient: (id: string
                 <div>
                     <h2 className="text-xl font-extrabold text-slate-800">سجل الجلسات</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        {rows.length} جلسة بقيمة {money(total, db.settings.currency)}
+                        {rows.length} جلسة{canSeeMoney ? ` بقيمة ${money(total, db.settings.currency)}` : ''}
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="secondary" onClick={exportCSV}>
                         تصدير CSV
                     </Button>
-                    <Button
-                        onClick={() => {
-                            setEditing(null);
-                            setOpen(true);
-                        }}
-                    >
-                        + تسجيل جلسة
-                    </Button>
+                    {can('sessions', 'create') ? (
+                        <Button
+                            onClick={() => {
+                                setEditing(null);
+                                setOpen(true);
+                            }}
+                        >
+                            + تسجيل جلسة
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
@@ -98,7 +101,7 @@ export default function Sessions({ onOpenPatient }: { onOpenPatient: (id: string
                 {rows.length === 0 ? (
                     <EmptyState title="لا توجد جلسات في هذه الفترة" hint="غيّر نطاق التاريخ أو سجّل جلسة جديدة" />
                 ) : (
-                    <Table head={['التاريخ', 'المريض', 'الأخصائي', 'الإجراءات', 'الألم', 'القيمة', '']}>
+                    <Table head={['التاريخ', 'المريض', 'الأخصائي', 'الإجراءات', 'الألم', ...(canSeeMoney ? ['القيمة'] : []), '']}>
                         {rows.map((s) => (
                             <tr key={s.id} className="hover:bg-slate-50">
                                 <Td className="font-semibold text-slate-700">{formatDate(s.date)}</Td>
@@ -126,26 +129,30 @@ export default function Sessions({ onOpenPatient }: { onOpenPatient: (id: string
                                         قبل {s.painBefore} · بعد {s.painAfter}
                                     </Badge>
                                 </Td>
-                                <Td className="font-semibold text-slate-700">{money(s.price, db.settings.currency)}</Td>
+                                {canSeeMoney ? <Td className="font-semibold text-slate-700">{money(s.price, db.settings.currency)}</Td> : null}
                                 <Td className="text-left">
                                     <div className="flex justify-end gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            className="px-2 py-1 text-xs"
-                                            onClick={() => {
-                                                setEditing(s);
-                                                setOpen(true);
-                                            }}
-                                        >
-                                            تعديل
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                            onClick={() => window.confirm('حذف هذه الجلسة؟') && remove('sessions', s.id)}
-                                        >
-                                            حذف
-                                        </Button>
+                                        {can('sessions', 'update') ? (
+                                            <Button
+                                                variant="ghost"
+                                                className="px-2 py-1 text-xs"
+                                                onClick={() => {
+                                                    setEditing(s);
+                                                    setOpen(true);
+                                                }}
+                                            >
+                                                تعديل
+                                            </Button>
+                                        ) : null}
+                                        {can('sessions', 'delete') ? (
+                                            <Button
+                                                variant="ghost"
+                                                className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                                onClick={() => window.confirm('حذف هذه الجلسة؟') && remove('sessions', s.id)}
+                                            >
+                                                حذف
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </Td>
                             </tr>

@@ -26,7 +26,8 @@ function emptyDraft(code: string, price: number): Draft {
 }
 
 export function PatientForm({ open, onClose, editing }: { open: boolean; onClose: () => void; editing: Patient | null }) {
-    const { db, add, update } = useStore();
+    const { db, add, update, can } = useStore();
+    const canSeeMoney = can('payments', 'read');
     const [draft, setDraft] = useState<Draft>(() => emptyDraft(nextPatientCode(db.patients), db.settings.defaultSessionPrice));
     const [error, setError] = useState('');
 
@@ -99,9 +100,11 @@ export function PatientForm({ open, onClose, editing }: { open: boolean; onClose
                 <Field label="عدد الجلسات المقررة">
                     <Input type="number" min={0} value={draft.plannedSessions} onChange={(e) => set('plannedSessions', Number(e.target.value))} />
                 </Field>
-                <Field label={`سعر الجلسة (${db.settings.currency})`}>
-                    <Input type="number" min={0} value={draft.sessionPrice} onChange={(e) => set('sessionPrice', Number(e.target.value))} />
-                </Field>
+                {canSeeMoney ? (
+                    <Field label={`سعر الجلسة (${db.settings.currency})`}>
+                        <Input type="number" min={0} value={draft.sessionPrice} onChange={(e) => set('sessionPrice', Number(e.target.value))} />
+                    </Field>
+                ) : null}
                 <Field label="الحالة">
                     <Select value={draft.archived ? 'archived' : 'active'} onChange={(e) => set('archived', e.target.value === 'archived')}>
                         <option value="active">نشط</option>
@@ -120,7 +123,7 @@ export function PatientForm({ open, onClose, editing }: { open: boolean; onClose
 }
 
 export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string) => void }) {
-    const { db, remove } = useStore();
+    const { db, remove, can } = useStore();
     const [query, setQuery] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
@@ -154,14 +157,16 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
                     <Button variant="secondary" onClick={exportCSV}>
                         تصدير CSV
                     </Button>
-                    <Button
-                        onClick={() => {
-                            setEditing(null);
-                            setFormOpen(true);
-                        }}
-                    >
-                        + مريض جديد
-                    </Button>
+                    {can('patients', 'create') ? (
+                        <Button
+                            onClick={() => {
+                                setEditing(null);
+                                setFormOpen(true);
+                            }}
+                        >
+                            + مريض جديد
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
@@ -177,7 +182,7 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
                 {rows.length === 0 ? (
                     <EmptyState title="لا توجد ملفات مطابقة" hint="جرّب كلمة بحث أخرى أو أضف مريضًا جديدًا" />
                 ) : (
-                    <Table head={['رقم الملف', 'المريض', 'الهاتف', 'التشخيص', 'الجلسات', 'المستحق', '']}>
+                    <Table head={['رقم الملف', 'المريض', 'الهاتف', 'التشخيص', 'الجلسات', ...(can('payments', 'read') ? ['المستحق'] : []), '']}>
                         {rows.map((p) => {
                             const bal = patientBalance(db, p.id);
                             const done = db.sessions.filter((s) => s.patientId === p.id).length;
@@ -206,7 +211,9 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
                                     <Td className="text-slate-600">
                                         {done} / {p.plannedSessions || '—'}
                                     </Td>
-                                    <Td className={bal.due > 0 ? 'font-bold text-rose-600' : 'text-emerald-600'}>{money(bal.due, db.settings.currency)}</Td>
+                                    {can('payments', 'read') ? (
+                                        <Td className={bal.due > 0 ? 'font-bold text-rose-600' : 'text-emerald-600'}>{money(bal.due, db.settings.currency)}</Td>
+                                    ) : null}
                                     <Td className="text-left">
                                         <div className="flex justify-end gap-1">
                                             <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onOpenPatient(p.id)}>

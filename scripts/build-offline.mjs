@@ -32,6 +32,7 @@ execFileSync(
         '--loader:.tsx=tsx',
         '--jsx=automatic',
         '--define:process.env.NODE_ENV="production"',
+        '--define:__CLINIC_MODE__="local"',
         `--outfile=${TMP_JS}`
     ],
     { stdio: 'inherit' }

@@ -1,0 +1,125 @@
+/**
+ * تخزين بيانات المركز على السيرفر.
+ *
+ * يستخدم Netlify Blobs عند النشر على Netlify، ويسقط تلقائيًا إلى ملف JSON
+ * محلي عند التشغيل على خادم عادي (جهاز داخل المركز أو أثناء التطوير)،
+ * فيعمل نفس الكود في الحالتين.
+ */
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import type { Database, ID, Role } from '../clinic/types';
+import { emptyDatabase, normalize } from '../clinic/storage';
+
+export interface ServerUser {
+    id: ID;
+    username: string;
+    name: string;
+    role: Role;
+    therapistId: ID | '';
+    active: boolean;
+    passwordHash: string;
+    passwordSalt: string;
+    iterations: number;
+    lastLoginAt: string;
+    createdAt: string;
+}
+
+export interface ServerSession {
+    tokenHash: string;
+    userId: ID;
+    createdAt: string;
+    expiresAt: string;
+}
+
+export interface ServerDatabase extends Database {
+    users: ServerUser[];
+    authSessions: ServerSession[]; // جلسات تسجيل الدخول (غير الجلسات العلاجية)
+}
+
+const BLOB_STORE = 'clinic';
+const BLOB_KEY = 'database';
+const FILE_PATH = resolve(process.env.CLINIC_DATA_FILE || '.data/clinic-db.json');
+
+export function emptyServerDatabase(): ServerDatabase {
+    return { ...emptyDatabase(), users: [], authSessions: [] };
+}
+
+function normalizeServer(raw: unknown): ServerDatabase {
+    const source = (raw ?? {}) as Partial<ServerDatabase>;
+    return {
+        ...normalize(raw),
+        users: Array.isArray(source.users) ? source.users : [],
+        authSessions: Array.isArray(source.authSessions) ? source.authSessions : []
+    };
+}
+
+/* --------------------------- طبقة التخزين --------------------------- */
+
+type Backend = { read: () => Promise<unknown>; write: (db: ServerDatabase) => Promise<void> };
+
+let backend: Backend | null = null;
+
+async function blobBackend(): Promise<Backend | null> {
+    try {
+        const { getStore } = await import('@netlify/blobs');
+        const store = getStore({ name: BLOB_STORE, consistency: 'strong' });
+        await store.get(BLOB_KEY, { type: 'json' }); // يفشل فورًا إذا لم نكن على Netlify
+        return {
+            read: () => store.get(BLOB_KEY, { type: 'json' }),
+            write: (db) => store.setJSON(BLOB_KEY, db)
+        };
+    } catch {
+        return null;
+    }
+}
+
+function fileBackend(): Backend {
+    return {
+        read: async () => {
+            try {
+                return JSON.parse(await readFile(FILE_PATH, 'utf8'));
+            } catch {
+                return null;
+            }
+        },
+        write: async (db) => {
+            await mkdir(dirname(FILE_PATH), { recursive: true });
+            // كتابة ذرّية: ملف مؤقت ثم إعادة تسمية، حتى لا تتلف البيانات لو توقف السيرفر أثناء الحفظ
+            const tmp = `${FILE_PATH}.${Date.now()}.tmp`;
+            await writeFile(tmp, JSON.stringify(db, null, 2), 'utf8');
+            await rename(tmp, FILE_PATH);
+        }
+    };
+}
+
+async function getBackend(): Promise<Backend> {
+    if (!backend) backend = (await blobBackend()) ?? fileBackend();
+    return backend;
+}
+
+/* ------------------------- قراءة وكتابة مُتسلسلة ------------------------- */
+
+let queue: Promise<unknown> = Promise.resolve();
+
+/** يمنع تداخل عمليتي قراءة-تعديل-كتابة داخل نفس العملية فتضيع إحداهما */
+function serialize<T>(task: () => Promise<T>): Promise<T> {
+    const run = queue.then(task, task);
+    queue = run.catch(() => undefined);
+    return run;
+}
+
+export async function readDatabase(): Promise<ServerDatabase> {
+    const store = await getBackend();
+    return normalizeServer(await store.read());
+}
+
+/** يقرأ أحدث نسخة، يطبّق التعديل، ثم يحفظ — كل ذلك داخل قفل واحد */
+export async function mutateDatabase<T>(mutator: (db: ServerDatabase) => T | Promise<T>): Promise<{ db: ServerDatabase; result: T }> {
+    return serialize(async () => {
+        const store = await getBackend();
+        const db = normalizeServer(await store.read());
+        const result = await mutator(db);
+        await store.write(db);
+        return { db, result };
+    });
+}
