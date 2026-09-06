@@ -1,9 +1,11 @@
 /**
  * تخزين بيانات المركز على السيرفر.
  *
- * يستخدم Netlify Blobs عند النشر على Netlify، ويسقط تلقائيًا إلى ملف JSON
- * محلي عند التشغيل على خادم عادي (جهاز داخل المركز أو أثناء التطوير)،
- * فيعمل نفس الكود في الحالتين.
+ * يختار الطبقة المناسبة تلقائيًا حسب مكان التشغيل:
+ *   1. Upstash Redis عبر REST — إن وُجد متغيرا البيئة (النشر على Vercel)
+ *   2. Netlify Blobs — عند النشر على Netlify
+ *   3. ملف JSON محلي — على جهاز داخل المركز أو أثناء التطوير
+ * فيعمل نفس الكود في الحالات الثلاث بلا تغيير.
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -38,6 +40,7 @@ export interface ServerDatabase extends Database {
 
 const BLOB_STORE = 'clinic';
 const BLOB_KEY = 'database';
+const REDIS_KEY = 'clinic:database';
 const FILE_PATH = resolve(process.env.CLINIC_DATA_FILE || '.data/clinic-db.json');
 
 export function emptyServerDatabase(): ServerDatabase {
@@ -73,6 +76,35 @@ async function blobBackend(): Promise<Backend | null> {
     }
 }
 
+/**
+ * Upstash Redis عبر REST — قاعدة البيانات كلها مستند JSON واحد تحت مفتاح واحد.
+ * تُستخدم عند النشر على Vercel لأن نظام الملفات هناك للقراءة فقط.
+ */
+function upstashBackend(): Backend | null {
+    const url = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) return null;
+
+    const headers = { authorization: `Bearer ${token}` };
+
+    return {
+        read: async () => {
+            const response = await fetch(`${url}/get/${encodeURIComponent(REDIS_KEY)}`, { headers, cache: 'no-store' });
+            if (!response.ok) throw new Error(`تعذر قراءة البيانات من المخزن (${response.status})`);
+            const body = (await response.json()) as { result?: string | null };
+            return body.result ? JSON.parse(body.result) : null;
+        },
+        write: async (db) => {
+            const response = await fetch(`${url}/set/${encodeURIComponent(REDIS_KEY)}`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(db)
+            });
+            if (!response.ok) throw new Error(`تعذر حفظ البيانات في المخزن (${response.status})`);
+        }
+    };
+}
+
 function fileBackend(): Backend {
     return {
         read: async () => {
@@ -93,7 +125,26 @@ function fileBackend(): Backend {
 }
 
 async function getBackend(): Promise<Backend> {
-    if (!backend) backend = (await blobBackend()) ?? fileBackend();
+    if (backend) return backend;
+
+    const upstash = upstashBackend();
+    if (upstash) {
+        backend = upstash;
+        return backend;
+    }
+
+    const blobs = await blobBackend();
+    if (blobs) {
+        backend = blobs;
+        return backend;
+    }
+
+    // على Vercel نظام الملفات للقراءة فقط، فلا فائدة من التخزين المحلي — نوضح السبب بدل خطأ غامض
+    if (process.env.VERCEL) {
+        throw new Error('لم يتم ضبط قاعدة البيانات. أضف المتغيرين UPSTASH_REDIS_REST_URL و UPSTASH_REDIS_REST_TOKEN في إعدادات المشروع ثم أعد النشر.');
+    }
+
+    backend = fileBackend();
     return backend;
 }
 

@@ -1,12 +1,21 @@
 import { defineConfig } from 'astro/config';
 import netlify from '@astrojs/netlify';
 import node from '@astrojs/node';
+import vercel from '@astrojs/vercel';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
-// CLINIC_TARGET=node يبني سيرفر يعمل على جهاز داخل المركز (شبكة محلية)،
-// والافتراضي هو النشر على Netlify.
-const target = process.env.CLINIC_TARGET === 'node' ? node({ mode: 'standalone' }) : netlify();
+// وجهة النشر:
+//   CLINIC_TARGET=node   → سيرفر يعمل على جهاز داخل المركز (شبكة محلية)
+//   CLINIC_TARGET=vercel أو بيئة Vercel → النشر على Vercel
+//   غير ذلك             → النشر على Netlify
+function resolveAdapter() {
+    if (process.env.CLINIC_TARGET === 'node') return node({ mode: 'standalone' });
+    if (process.env.CLINIC_TARGET === 'vercel' || process.env.VERCEL) return vercel();
+    return netlify();
+}
+
+const target = resolveAdapter();
 
 // https://astro.build/config
 export default defineConfig({
