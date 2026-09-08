@@ -1,6 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { Button, Field, Input } from '../components/ui';
+import { initialLang, isRtl, LANG_KEY, type Lang } from '../i18n';
+
+/**
+ * نصوص شاشة الدخول باللغتين — بوابة المريض تعمل بالإنجليزية،
+ * فلا معنى لأن يكون بابها بالعربية وحدها أمام المقيمين والسائحين.
+ */
+const LOGIN_TEXT = {
+    ar: {
+        subtitle: 'سجّل الدخول للمتابعة',
+        username: 'اسم المستخدم',
+        password: 'كلمة السر',
+        submit: 'دخول',
+        busy: 'جارٍ الدخول…',
+        failed: 'تعذر تسجيل الدخول',
+        hint: 'لو نسيت كلمة السر، اطلب من المركز إعادة تعيينها.'
+    },
+    en: {
+        subtitle: 'Sign in to continue',
+        username: 'Username',
+        password: 'Password',
+        submit: 'Sign in',
+        busy: 'Signing in…',
+        failed: 'Could not sign in',
+        hint: 'Forgot your password? Ask the clinic to reset it for you.'
+    }
+} as const;
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
     return (
@@ -18,11 +44,31 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: str
 }
 
 export function LoginScreen() {
-    const { signIn } = useStore();
+    const { db, signIn } = useStore();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const [lang, setLang] = useState<Lang>('ar');
+    const text = LOGIN_TEXT[lang];
+
+    // اللغة تُقرأ بعد الإقلاع حتى لا يختلف ما يرسمه السيرفر عما يرسمه المتصفح
+    useEffect(() => setLang(initialLang()), []);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('dir', isRtl(lang) ? 'rtl' : 'ltr');
+        document.documentElement.setAttribute('lang', lang);
+    }, [lang]);
+
+    const switchLang = () => {
+        const next: Lang = lang === 'ar' ? 'en' : 'ar';
+        setLang(next);
+        try {
+            window.localStorage.setItem(LANG_KEY, next);
+        } catch {
+            /* المتصفح يمنع التخزين — اللغة تعمل لهذه الجلسة فقط */
+        }
+    };
 
     const submit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -31,20 +77,29 @@ export function LoginScreen() {
         try {
             await signIn(username, password);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول');
+            setError(err instanceof Error ? err.message : text.failed);
         } finally {
             setBusy(false);
         }
     };
 
     return (
-        <AuthShell title="مركز رينج للعلاج الطبيعي والتأهيل" subtitle="سجّل الدخول للمتابعة">
+        <AuthShell title={lang === 'ar' ? db.settings.name : db.settings.nameEn || db.settings.name} subtitle={text.subtitle}>
+            <div className="mb-3 flex justify-end">
+                <button
+                    type="button"
+                    onClick={switchLang}
+                    className="cursor-pointer rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                    {lang === 'ar' ? 'English' : 'العربية'}
+                </button>
+            </div>
             <form onSubmit={submit} className="space-y-3">
                 {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
-                <Field label="اسم المستخدم">
+                <Field label={text.username}>
                     <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus dir="ltr" className="text-right" />
                 </Field>
-                <Field label="كلمة السر">
+                <Field label={text.password}>
                     <Input
                         type="password"
                         value={password}
@@ -55,10 +110,10 @@ export function LoginScreen() {
                     />
                 </Field>
                 <Button type="submit" className="w-full" disabled={busy || !username || !password}>
-                    {busy ? 'جارٍ الدخول…' : 'دخول'}
+                    {busy ? text.busy : text.submit}
                 </Button>
             </form>
-            <p className="mt-4 text-center text-[11px] text-slate-400">لو نسيت كلمة السر، اطلب من مدير النظام إعادة تعيينها من صفحة المستخدمين.</p>
+            <p className="mt-4 text-center text-[11px] text-slate-400">{text.hint}</p>
         </AuthShell>
     );
 }

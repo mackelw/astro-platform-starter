@@ -1,10 +1,37 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { Appointment, ClinicSettings, Database, Expense, ID, Patient, Payment, PublicUser, Session, Therapist } from './types';
+import type {
+    Appointment,
+    Booking,
+    ClinicSettings,
+    Database,
+    Exercise,
+    ExerciseLog,
+    Expense,
+    ID,
+    Patient,
+    Payment,
+    Prescription,
+    PublicUser,
+    Service,
+    Session,
+    Therapist
+} from './types';
 import { DB_KEY, emptyDatabase, loadDatabase, normalize, saveDatabase, seedDatabase, uid } from './storage';
 import { api, ApiError, MODE } from './api';
 import { can as canRole, type Action, type Resource } from './permissions';
 
-type Collection = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses';
+type Collection =
+    | 'patients'
+    | 'therapists'
+    | 'appointments'
+    | 'sessions'
+    | 'payments'
+    | 'expenses'
+    | 'exercises'
+    | 'prescriptions'
+    | 'exerciseLogs'
+    | 'services'
+    | 'bookings';
 
 type ItemOf = {
     patients: Patient;
@@ -13,6 +40,11 @@ type ItemOf = {
     sessions: Session;
     payments: Payment;
     expenses: Expense;
+    exercises: Exercise;
+    prescriptions: Prescription;
+    exerciseLogs: ExerciseLog;
+    services: Service;
+    bookings: Booking;
 };
 
 type Status = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -200,6 +232,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                     next.appointments = next.appointments.filter((a) => a.patientId !== id);
                     next.sessions = next.sessions.filter((s) => s.patientId !== id);
                     next.payments = next.payments.filter((p) => p.patientId !== id);
+                    next.prescriptions = next.prescriptions.filter((r) => r.patientId !== id);
+                    next.exerciseLogs = next.exerciseLogs.filter((l) => l.patientId !== id);
+                    next.bookings = next.bookings.filter((b) => b.patientId !== id);
+                }
+                if (collection === 'exercises') {
+                    const dropped = next.prescriptions.filter((r) => r.exerciseId === id).map((r) => r.id);
+                    next.prescriptions = next.prescriptions.filter((r) => r.exerciseId !== id);
+                    next.exerciseLogs = next.exerciseLogs.filter((l) => !dropped.includes(l.prescriptionId));
+                }
+                if (collection === 'prescriptions') {
+                    next.exerciseLogs = next.exerciseLogs.filter((l) => l.prescriptionId !== id);
                 }
                 return next;
             });

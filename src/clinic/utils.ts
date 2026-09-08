@@ -150,6 +150,32 @@ export async function downloadFile(filename: string, content: string, type = 'ap
     URL.revokeObjectURL(url);
 }
 
+/**
+ * يحوّل رابط الفيديو إلى رابط تضمين صالح للعرض داخل التطبيق.
+ * يدعم يوتيوب بصيغه المختلفة وفيميو، ويعيد null لأي رابط آخر
+ * فيُعرض كزر "شاهد طريقة الأداء" بدل إطار لا يعمل.
+ */
+export function embedUrl(url: string): string | null {
+    const value = String(url || '').trim();
+    if (!value) return null;
+    const youtube = value.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/);
+    if (youtube) return `https://www.youtube-nocookie.com/embed/${youtube[1]}`;
+    const vimeo = value.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+    return null;
+}
+
+/** ملف فيديو مباشر يُعرض بعنصر video بدل إطار خارجي */
+export function isDirectVideo(url: string): boolean {
+    return /\.(mp4|webm|ogg)(\?.*)?$/i.test(String(url || '').trim());
+}
+
+/** رابط آمن للفتح من التطبيق — نمنع أي بروتوكول غير http/https */
+export function safeUrl(url: string): string {
+    const value = String(url || '').trim();
+    return /^https?:\/\//i.test(value) ? value : '';
+}
+
 export function toCSV(rows: (string | number)[][]): string {
     const escape = (cell: string | number) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
     // إشارة BOM حتى تفتح الملفات العربية بشكل صحيح في Excel

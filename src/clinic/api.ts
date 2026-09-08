@@ -52,11 +52,19 @@ export const api = {
 
     listUsers: () => request<{ users: PublicUser[] }>('/api/clinic/users'),
 
-    createUser: (payload: { username: string; password: string; name: string; role: Role; therapistId?: string }) =>
+    createUser: (payload: { username: string; password: string; name: string; role: Role; therapistId?: string; patientId?: string; memberIds?: string[] }) =>
         request<{ users: PublicUser[] }>('/api/clinic/users', { method: 'POST', body: JSON.stringify(payload) }),
 
-    updateUser: (payload: { id: string; name?: string; role?: Role; therapistId?: string; active?: boolean; password?: string }) =>
-        request<{ users: PublicUser[] }>('/api/clinic/users', { method: 'PATCH', body: JSON.stringify(payload) }),
+    updateUser: (payload: {
+        id: string;
+        name?: string;
+        role?: Role;
+        therapistId?: string;
+        patientId?: string;
+        memberIds?: string[];
+        active?: boolean;
+        password?: string;
+    }) => request<{ users: PublicUser[] }>('/api/clinic/users', { method: 'PATCH', body: JSON.stringify(payload) }),
 
     deleteUser: (id: string) => request<{ users: PublicUser[] }>(`/api/clinic/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
 };

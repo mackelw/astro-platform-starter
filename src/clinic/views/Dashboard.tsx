@@ -52,6 +52,9 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
         return { active, todays, monthSessions, monthIncome, monthExpenses, dues, totalDue };
     }, [db, today]);
 
+    // طلبات الحجز الجديدة تحتاج ردًا سريعًا، فتظهر كتنبيه أعلى اللوحة
+    const newBookings = db.bookings.filter((booking) => booking.status === 'new').length;
+
     const upcoming = useMemo(
         () => sortAppointments(db.appointments.filter((a) => a.date > today && a.status === 'scheduled')).slice(0, 5),
         [db.appointments, today]
@@ -91,6 +94,17 @@ export default function Dashboard({ onOpenPatient, onGo }: { onOpenPatient: (id:
                     </>
                 ) : null}
             </div>
+
+            {newBookings > 0 ? (
+                <button
+                    type="button"
+                    onClick={() => onGo('bookings')}
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-right transition hover:bg-sky-100"
+                >
+                    <span className="text-sm font-bold text-sky-900">{newBookings} طلب حجز جديد من التطبيق في انتظار الرد</span>
+                    <span className="text-xs font-semibold text-sky-700">عرض الطلبات ←</span>
+                </button>
+            ) : null}
 
             <div className="grid gap-5 lg:grid-cols-3">
                 <Card className="lg:col-span-2">

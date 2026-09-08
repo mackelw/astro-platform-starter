@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { createPasswordFields, json, newId, setSessionCookie, login, toPublicUser } from '../../../server/auth';
 import { mutateDatabase } from '../../../server/db';
 import { visibleDatabase } from '../../../server/api';
+import { defaultExercises, defaultServices } from '../../../clinic/storage';
 
 export const prerender = false;
 
@@ -23,12 +24,19 @@ export const POST: APIRoute = async (context) => {
             name,
             role: 'admin',
             therapistId: '',
+            patientId: '',
+            memberIds: [],
             active: true,
             lastLoginAt: '',
             createdAt: new Date().toISOString(),
             ...(await createPasswordFields(password))
         });
         if (body.clinicName) db.settings.name = String(body.clinicName).slice(0, 200);
+
+        // قائمة خدمات ومكتبة تمارين جاهزة من أول تشغيل — يعدّلها المركز كما يشاء
+        const now = new Date().toISOString();
+        if (db.services.length === 0) db.services = defaultServices().map((service) => ({ ...service, id: newId('v_'), createdAt: now }));
+        if (db.exercises.length === 0) db.exercises = defaultExercises().map((exercise) => ({ ...exercise, id: newId('x_'), createdAt: now }));
         return null;
     });
 

@@ -10,16 +10,21 @@ import SessionsView from './views/Sessions';
 import Billing from './views/Billing';
 import Reports from './views/Reports';
 import Settings from './views/Settings';
+import Exercises from './views/Exercises';
+import Bookings from './views/Bookings';
+import PortalApp from './portal/PortalApp';
 import { ErrorScreen, LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
 import { formatDateLong, todayISO } from './utils';
 
-type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
+type View = 'dashboard' | 'appointments' | 'bookings' | 'patients' | 'sessions' | 'exercises' | 'billing' | 'reports' | 'settings';
 
 const NAV: { key: View; label: string; icon: string }[] = [
     { key: 'dashboard', label: 'لوحة التحكم', icon: '▦' },
     { key: 'appointments', label: 'المواعيد', icon: '🗓' },
+    { key: 'bookings', label: 'طلبات الحجز', icon: '📨' },
     { key: 'patients', label: 'المرضى', icon: '👤' },
     { key: 'sessions', label: 'الجلسات', icon: '🩺' },
+    { key: 'exercises', label: 'مكتبة التمارين', icon: '🤸' },
     { key: 'billing', label: 'الحسابات', icon: '💳' },
     { key: 'reports', label: 'التقارير', icon: '📊' },
     { key: 'settings', label: 'الإعدادات', icon: '⚙' }
@@ -31,6 +36,11 @@ function isView(value: string): value is View {
 
 function Shell() {
     const { db, user, can, error, clearError, signOut } = useStore();
+    // شاشات الإدارة عربية دائمًا — نعيد الاتجاه لو كان المتصفح خارجًا من بوابة مريض بالإنجليزية
+    useEffect(() => {
+        document.documentElement.setAttribute('dir', 'rtl');
+        document.documentElement.setAttribute('lang', 'ar');
+    }, []);
     const [view, setView] = useState<View>('dashboard');
     const [patientId, setPatientId] = useState<string | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -81,6 +91,8 @@ function Shell() {
     if (patientId) content = <PatientProfile patientId={patientId} onBack={backToPatients} />;
     else if (allowed === 'dashboard') content = <Dashboard onOpenPatient={openPatient} onGo={(v) => go(v as View)} />;
     else if (allowed === 'appointments') content = <Appointments onOpenPatient={openPatient} />;
+    else if (allowed === 'bookings') content = <Bookings onOpenPatient={openPatient} />;
+    else if (allowed === 'exercises') content = <Exercises />;
     else if (allowed === 'patients') content = <Patients onOpenPatient={openPatient} />;
     else if (allowed === 'sessions') content = <SessionsView onOpenPatient={openPatient} />;
     else if (allowed === 'billing') content = <Billing onOpenPatient={openPatient} />;
@@ -176,11 +188,13 @@ function Shell() {
 }
 
 function Gate() {
-    const { status } = useStore();
+    const { status, user } = useStore();
     if (status === 'loading') return <LoadingScreen />;
     if (status === 'error') return <ErrorScreen />;
     if (status === 'setup') return <SetupScreen />;
     if (status === 'login') return <LoginScreen />;
+    // المريض يرى بوابة مختلفة تمامًا عن شاشات إدارة المركز
+    if (user?.role === 'patient') return <PortalApp />;
     return <Shell />;
 }
 

@@ -17,7 +17,9 @@ export interface ServerUser {
     username: string;
     name: string;
     role: Role;
-    therapistId: ID | '';
+    therapistId: ID | ''; // حساب الأخصائي مربوط بسجله في قائمة الأخصائيين
+    patientId: ID | ''; // حساب المريض مربوط بملفه الطبي
+    memberIds: ID[]; // ملفات أفراد الأسرة التي يديرها هذا الحساب
     active: boolean;
     passwordHash: string;
     passwordSalt: string;
@@ -49,9 +51,13 @@ export function emptyServerDatabase(): ServerDatabase {
 
 function normalizeServer(raw: unknown): ServerDatabase {
     const source = (raw ?? {}) as Partial<ServerDatabase>;
+    // الحسابات المحفوظة قبل إضافة بوابة المريض تفتقد الحقلين الجديدين، فنكملهما بقيم آمنة
+    const users = Array.isArray(source.users)
+        ? source.users.map((user) => ({ ...user, patientId: user.patientId ?? '', memberIds: Array.isArray(user.memberIds) ? user.memberIds : [] }))
+        : [];
     return {
         ...normalize(raw),
-        users: Array.isArray(source.users) ? source.users : [],
+        users,
         authSessions: Array.isArray(source.authSessions) ? source.authSessions : []
     };
 }

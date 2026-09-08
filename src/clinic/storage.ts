@@ -1,4 +1,4 @@
-import type { Database } from './types';
+import type { Database, Exercise, Service } from './types';
 
 export const DB_KEY = 'pt-clinic-db-v1';
 export const DB_VERSION = 1;
@@ -8,22 +8,220 @@ export function emptyDatabase(): Database {
         version: DB_VERSION,
         settings: {
             name: 'مركز رينج للعلاج الطبيعي والتأهيل',
+            nameEn: 'Range Physiotherapy & Rehabilitation Center',
             doctorName: 'د. مايكل مجدي',
-            phone: '',
-            address: '',
+            phone: '+201284185228',
+            whatsapp: '+201284185228',
+            address: 'الكوثر - الغردقة، أعلى جيم Pro Active',
+            addressEn: 'El Kawther, Hurghada — above Pro Active Gym',
             currency: 'ج.م',
-            defaultSessionPrice: 150,
+            defaultSessionPrice: 500,
+            examPrice: 600,
             defaultDuration: 45,
-            workStart: '09:00',
-            workEnd: '21:00'
+            workStart: '10:00',
+            workEnd: '22:00',
+            fridayStart: '16:00',
+            fridayEnd: '22:00',
+            homeVisitAreas: 'الغردقة, الجونة, سهل حشيش, مكادي باي, سوما باي',
+            mapUrl: ''
         },
         patients: [],
         therapists: [],
         appointments: [],
         sessions: [],
         payments: [],
-        expenses: []
+        expenses: [],
+        exercises: [],
+        prescriptions: [],
+        exerciseLogs: [],
+        services: [],
+        bookings: []
     };
+}
+
+/**
+ * الخدمات التي يبدأ بها المركز — تُنشأ مرة واحدة عند أول إعداد للنظام
+ * حتى تظهر للمريض قائمة أسعار حقيقية من أول تشغيل.
+ */
+export function defaultServices(): Omit<Service, 'id' | 'createdAt'>[] {
+    return [
+        {
+            name: 'كشف وتقييم أولي',
+            nameEn: 'Initial Assessment',
+            description: 'فحص إكلينيكي شامل وتحديد خطة العلاج الطبيعي المناسبة للحالة.',
+            descriptionEn: 'Full clinical assessment and a tailored physiotherapy plan.',
+            price: 600,
+            duration: 45,
+            homeVisit: true,
+            active: true
+        },
+        {
+            name: 'جلسة علاج طبيعي',
+            nameEn: 'Physiotherapy Session',
+            description: 'جلسة علاج طبيعي وتأهيل حسب الخطة العلاجية المحددة بعد الكشف.',
+            descriptionEn: 'Physiotherapy and rehabilitation session following your treatment plan.',
+            price: 500,
+            duration: 45,
+            homeVisit: true,
+            active: true
+        },
+        {
+            name: 'الموجات التصادمية (Shockwave)',
+            nameEn: 'Shockwave Therapy',
+            description: 'لعلاج الالتهابات المزمنة مثل الشوكة العظمية والتهاب أوتار الكتف والمرفق.',
+            descriptionEn: 'For chronic tendon conditions such as heel spur, shoulder and elbow tendinopathy.',
+            price: 500,
+            duration: 30,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'تقنية تيكار (TECAR)',
+            nameEn: 'TECAR Therapy',
+            description: 'علاج بالطاقة الحرارية العميقة يسرّع التئام الأنسجة ويخفف الألم.',
+            descriptionEn: 'Deep thermal energy therapy that speeds tissue healing and relieves pain.',
+            price: 500,
+            duration: 30,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'الشد الفقري (Spinal Traction)',
+            nameEn: 'Spinal Traction',
+            description: 'شد آلي للفقرات لعلاج الانزلاق الغضروفي وعرق النسا وضغط الأعصاب.',
+            descriptionEn: 'Mechanical spinal decompression for disc herniation, sciatica and nerve compression.',
+            price: 500,
+            duration: 30,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'الإبر الجافة (Dry Needling)',
+            nameEn: 'Dry Needling',
+            description: 'علاج النقاط الزنادية والتشنجات العضلية المزمنة بالإبر الجافة.',
+            descriptionEn: 'Trigger point and chronic muscle spasm treatment with dry needling.',
+            price: 500,
+            duration: 30,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'تقويم العمود الفقري (Chiropractic)',
+            nameEn: 'Chiropractic',
+            description: 'تعديل يدوي للفقرات والمفاصل لتحسين الحركة وتخفيف الألم.',
+            descriptionEn: 'Manual adjustment of joints and spine to restore motion and relieve pain.',
+            price: 600,
+            duration: 30,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'التأهيل الرياضي',
+            nameEn: 'Sports Rehabilitation',
+            description: 'برنامج تأهيل للإصابات الرياضية والعودة الآمنة للملعب.',
+            descriptionEn: 'Rehabilitation programme for sports injuries and a safe return to play.',
+            price: 500,
+            duration: 60,
+            homeVisit: false,
+            active: true
+        },
+        {
+            name: 'زيارة منزلية',
+            nameEn: 'Home Visit',
+            description: 'جلسة علاج طبيعي في المنزل أو الفندق داخل الغردقة والجونة وسهل حشيش ومكادي وسوما باي.',
+            descriptionEn: 'Physiotherapy at your home or hotel across Hurghada, El Gouna, Sahl Hasheesh, Makadi and Soma Bay.',
+            price: 800,
+            duration: 60,
+            homeVisit: true,
+            active: true
+        }
+    ];
+}
+
+/** تمارين منزلية جاهزة تُملأ بها المكتبة عند أول إعداد، ويعدّلها المركز كما يشاء */
+export function defaultExercises(): Omit<Exercise, 'id' | 'createdAt'>[] {
+    return [
+        {
+            name: 'إمالة الحوض الخلفية',
+            nameEn: 'Posterior Pelvic Tilt',
+            category: 'العمود الفقري القطني',
+            description: 'استلقِ على ظهرك مع ثني الركبتين، اضغط أسفل ظهرك تجاه الأرض واثبت 5 ثوانٍ ثم استرخِ.',
+            descriptionEn: 'Lie on your back with knees bent, flatten your lower back against the floor, hold 5 seconds and release.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'تمرين القطة والبعير',
+            nameEn: 'Cat–Camel',
+            category: 'العمود الفقري القطني',
+            description: 'من وضع الزحف، قوّس ظهرك لأعلى ببطء ثم اخفضه لأسفل، مع تنفس منتظم وبدون ألم.',
+            descriptionEn: 'On all fours, slowly arch your back up then let it sag down, breathing steadily and staying pain-free.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'رفع الساق المستقيمة',
+            nameEn: 'Straight Leg Raise',
+            category: 'الركبة',
+            description: 'استلقِ على ظهرك، شدّ عضلة الفخذ وارفع الساق المفرودة 30 سم واثبت ثانيتين ثم أنزلها ببطء.',
+            descriptionEn: 'Lying on your back, tighten your thigh and lift the straight leg 30 cm, hold 2 seconds, lower slowly.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'تمرين البندول للكتف',
+            nameEn: 'Pendulum Exercise',
+            category: 'الكتف',
+            description: 'انحنِ للأمام مستندًا بيد سليمة، ودع الذراع المصابة تتأرجح بحركة دائرية مسترخية.',
+            descriptionEn: 'Lean forward supported by the healthy arm and let the affected arm swing in relaxed circles.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'تسلق الحائط بالأصابع',
+            nameEn: 'Wall Finger Walk',
+            category: 'الكتف',
+            description: 'قف مواجهًا الحائط وامشِ بأصابعك لأعلى إلى أقصى مدى بلا ألم، ثم انزل ببطء.',
+            descriptionEn: 'Face the wall and walk your fingers upward to your pain-free limit, then come down slowly.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'إطالة عضلة السمانة',
+            nameEn: 'Calf Stretch',
+            category: 'الكاحل والقدم',
+            description: 'ادفع الحائط بقدم خلفية مفرودة وكعب ملامس للأرض، واثبت على الشد 30 ثانية.',
+            descriptionEn: 'Push against the wall with the back leg straight and heel down, holding the stretch for 30 seconds.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'شدّ الرقبة للخلف (Chin Tuck)',
+            nameEn: 'Chin Tuck',
+            category: 'الرقبة',
+            description: 'اسحب ذقنك للخلف كأنك تصنع ذقنًا مزدوجة بدون إمالة الرأس، واثبت 5 ثوانٍ.',
+            descriptionEn: 'Draw your chin straight back to make a double chin without tilting the head, hold 5 seconds.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        },
+        {
+            name: 'تمرين الجسر',
+            nameEn: 'Bridging',
+            category: 'العمود الفقري القطني',
+            description: 'استلقِ مع ثني الركبتين، ارفع الحوض حتى يستقيم الجسم مع الفخذين واثبت 5 ثوانٍ.',
+            descriptionEn: 'Lying with knees bent, lift your hips until body and thighs are in line, hold 5 seconds.',
+            mediaType: 'none',
+            mediaUrl: '',
+            active: true
+        }
+    ];
 }
 
 export function uid(prefix = ''): string {
@@ -184,6 +382,26 @@ export function seedDatabase(): Database {
 
     db.expenses = [{ id: uid('e_'), date: iso(-3), title: 'مستلزمات طبية', category: 'مستلزمات', amount: 450, notes: '', createdAt: new Date().toISOString() }];
 
+    db.services = defaultServices().map((service) => ({ ...service, id: uid('v_'), createdAt: new Date().toISOString() }));
+    db.exercises = defaultExercises().map((exercise) => ({ ...exercise, id: uid('x_'), createdAt: new Date().toISOString() }));
+
+    // برنامج منزلي جاهز للمريض الأول حتى تظهر الشاشة بمحتوى حقيقي
+    db.prescriptions = db.exercises.slice(0, 3).map((exercise) => ({
+        id: uid('r_'),
+        patientId: p1.id,
+        exerciseId: exercise.id,
+        sets: 3,
+        reps: 10,
+        holdSeconds: 5,
+        perDay: 2,
+        daysPerWeek: 6,
+        startDate: iso(-2),
+        endDate: '',
+        notes: '',
+        active: true,
+        createdAt: new Date().toISOString()
+    }));
+
     return db;
 }
 
@@ -200,7 +418,12 @@ export function normalize(raw: unknown): Database {
         appointments: Array.isArray(db.appointments) ? db.appointments : [],
         sessions: Array.isArray(db.sessions) ? db.sessions : [],
         payments: Array.isArray(db.payments) ? db.payments : [],
-        expenses: Array.isArray(db.expenses) ? db.expenses : []
+        expenses: Array.isArray(db.expenses) ? db.expenses : [],
+        exercises: Array.isArray(db.exercises) ? db.exercises : [],
+        prescriptions: Array.isArray(db.prescriptions) ? db.prescriptions : [],
+        exerciseLogs: Array.isArray(db.exerciseLogs) ? db.exerciseLogs : [],
+        services: Array.isArray(db.services) ? db.services : [],
+        bookings: Array.isArray(db.bookings) ? db.bookings : []
     };
 }
 

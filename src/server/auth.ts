@@ -56,6 +56,8 @@ export function toPublicUser(user: ServerUser): PublicUser {
         name: user.name,
         role: user.role,
         therapistId: user.therapistId,
+        patientId: user.patientId,
+        memberIds: user.memberIds ?? [],
         active: user.active,
         lastLoginAt: user.lastLoginAt,
         createdAt: user.createdAt

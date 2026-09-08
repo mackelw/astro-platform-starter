@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { Therapist } from '../types';
-import { Button, Card, CardHeader, EmptyState, Field, Input, Modal, Table, Td } from '../components/ui';
-import { downloadFile, todayISO } from '../utils';
+import type { Service, Therapist } from '../types';
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Table, Td, Textarea } from '../components/ui';
+import { downloadFile, money, todayISO } from '../utils';
 import { MODE } from '../api';
 import Users from './Users';
 
@@ -60,6 +60,180 @@ function TherapistForm({ open, onClose, editing }: { open: boolean; onClose: () 
     );
 }
 
+interface ServiceDraft {
+    name: string;
+    nameEn: string;
+    description: string;
+    descriptionEn: string;
+    price: number;
+    duration: number;
+    homeVisit: boolean;
+    active: boolean;
+}
+
+const emptyService = (duration: number, price: number): ServiceDraft => ({
+    name: '',
+    nameEn: '',
+    description: '',
+    descriptionEn: '',
+    price,
+    duration,
+    homeVisit: false,
+    active: true
+});
+
+/** الخدمات المعلنة في تطبيق المريض بأسعارها — منها يختار عند طلب الحجز */
+function ServicesCard() {
+    const { db, add, update, remove, can } = useStore();
+    const mayWrite = can('services', 'create');
+    const mayDelete = can('services', 'delete');
+    const [open, setOpen] = useState(false);
+    const [editing, setEditing] = useState<Service | null>(null);
+    const [draft, setDraft] = useState<ServiceDraft>(() => emptyService(45, 0));
+
+    const startAdd = () => {
+        setEditing(null);
+        setDraft(emptyService(db.settings.defaultDuration, db.settings.defaultSessionPrice));
+        setOpen(true);
+    };
+
+    const startEdit = (service: Service) => {
+        setEditing(service);
+        setDraft({
+            name: service.name,
+            nameEn: service.nameEn,
+            description: service.description,
+            descriptionEn: service.descriptionEn,
+            price: service.price,
+            duration: service.duration,
+            homeVisit: service.homeVisit,
+            active: service.active
+        });
+        setOpen(true);
+    };
+
+    const save = () => {
+        if (!draft.name.trim()) return;
+        if (editing) update('services', editing.id, draft);
+        else add('services', draft);
+        setOpen(false);
+    };
+
+    return (
+        <Card>
+            <CardHeader
+                title="الخدمات والأسعار"
+                subtitle="تظهر للمريض في التطبيق بأسعارها، ويختار منها عند طلب الحجز"
+                action={mayWrite ? <Button onClick={startAdd}>+ خدمة جديدة</Button> : undefined}
+            />
+            {db.services.length === 0 ? (
+                <EmptyState title="لا توجد خدمات مضافة" hint="أضف خدمات المركز وأسعارها لتظهر في تطبيق المريض" />
+            ) : (
+                <Table head={['الخدمة', 'السعر', 'المدة', 'زيارة منزلية', 'الحالة', '']}>
+                    {db.services.map((service) => (
+                        <tr key={service.id} className="hover:bg-slate-50">
+                            <Td>
+                                <span className="font-semibold text-slate-700">{service.name}</span>
+                                {service.nameEn ? (
+                                    <span className="block text-[11px] text-slate-400" dir="ltr">
+                                        {service.nameEn}
+                                    </span>
+                                ) : null}
+                            </Td>
+                            <Td className="text-slate-600">{money(service.price, db.settings.currency)}</Td>
+                            <Td className="text-slate-600">{service.duration} د</Td>
+                            <Td>{service.homeVisit ? <span className="text-emerald-600">متاحة</span> : <span className="text-slate-400">لا</span>}</Td>
+                            <Td>
+                                {service.active ? (
+                                    <span className="text-emerald-600">معروضة</span>
+                                ) : (
+                                    <Badge className="bg-slate-200 text-slate-600 ring-slate-300">مخفية</Badge>
+                                )}
+                            </Td>
+                            <Td className="text-left">
+                                <div className="flex justify-end gap-1">
+                                    {mayWrite ? (
+                                        <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => startEdit(service)}>
+                                            تعديل
+                                        </Button>
+                                    ) : null}
+                                    {mayDelete ? (
+                                        <Button
+                                            variant="ghost"
+                                            className="px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                                            onClick={() => {
+                                                if (window.confirm(`حذف خدمة "${service.name}"؟`)) remove('services', service.id);
+                                            }}
+                                        >
+                                            حذف
+                                        </Button>
+                                    ) : null}
+                                </div>
+                            </Td>
+                        </tr>
+                    ))}
+                </Table>
+            )}
+
+            <Modal
+                open={open}
+                title={editing ? 'تعديل خدمة' : 'خدمة جديدة'}
+                onClose={() => setOpen(false)}
+                wide
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setOpen(false)}>
+                            إلغاء
+                        </Button>
+                        <Button onClick={save} disabled={!draft.name.trim()}>
+                            حفظ
+                        </Button>
+                    </>
+                }
+            >
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="اسم الخدمة بالعربية">
+                        <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                    </Field>
+                    <Field label="الاسم بالإنجليزية">
+                        <Input value={draft.nameEn} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} dir="ltr" />
+                    </Field>
+                    <Field label="الوصف بالعربية" className="sm:col-span-2">
+                        <Textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                    </Field>
+                    <Field label="الوصف بالإنجليزية" className="sm:col-span-2">
+                        <Textarea value={draft.descriptionEn} onChange={(e) => setDraft({ ...draft, descriptionEn: e.target.value })} dir="ltr" />
+                    </Field>
+                    <Field label="السعر">
+                        <Input type="number" min={0} value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} />
+                    </Field>
+                    <Field label="المدة (دقيقة)">
+                        <Input
+                            type="number"
+                            min={5}
+                            step={5}
+                            value={draft.duration}
+                            onChange={(e) => setDraft({ ...draft, duration: Number(e.target.value) })}
+                        />
+                    </Field>
+                    <Field label="متاحة كزيارة منزلية">
+                        <Select value={draft.homeVisit ? '1' : '0'} onChange={(e) => setDraft({ ...draft, homeVisit: e.target.value === '1' })}>
+                            <option value="0">لا</option>
+                            <option value="1">نعم</option>
+                        </Select>
+                    </Field>
+                    <Field label="الحالة">
+                        <Select value={draft.active ? '1' : '0'} onChange={(e) => setDraft({ ...draft, active: e.target.value === '1' })}>
+                            <option value="1">معروضة في التطبيق</option>
+                            <option value="0">مخفية</option>
+                        </Select>
+                    </Field>
+                </div>
+            </Modal>
+        </Card>
+    );
+}
+
 export default function Settings() {
     const { db, user, updateSettings, remove, replaceAll, resetToSeed, clearAll, can } = useStore();
     const isLocal = MODE === 'local';
@@ -104,8 +278,11 @@ export default function Settings() {
             <Card>
                 <CardHeader title="بيانات العيادة" subtitle="تظهر في التقارير المطبوعة" />
                 <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-                    <Field label="اسم العيادة">
+                    <Field label="اسم المركز بالعربية">
                         <Input disabled={!canEditSettings} value={db.settings.name} onChange={(e) => updateSettings({ name: e.target.value })} />
+                    </Field>
+                    <Field label="اسم المركز بالإنجليزية" hint="يظهر للمرضى الأجانب في التطبيق">
+                        <Input disabled={!canEditSettings} value={db.settings.nameEn} onChange={(e) => updateSettings({ nameEn: e.target.value })} dir="ltr" />
                     </Field>
                     <Field label="اسم الطبيب المسؤول">
                         <Input
@@ -115,10 +292,35 @@ export default function Settings() {
                         />
                     </Field>
                     <Field label="الهاتف">
-                        <Input disabled={!canEditSettings} value={db.settings.phone} onChange={(e) => updateSettings({ phone: e.target.value })} />
+                        <Input disabled={!canEditSettings} value={db.settings.phone} onChange={(e) => updateSettings({ phone: e.target.value })} dir="ltr" />
                     </Field>
-                    <Field label="العنوان" className="sm:col-span-2">
+                    <Field label="رقم الواتساب" hint="زر التواصل في تطبيق المريض يفتح محادثة على هذا الرقم">
+                        <Input
+                            disabled={!canEditSettings}
+                            value={db.settings.whatsapp}
+                            onChange={(e) => updateSettings({ whatsapp: e.target.value })}
+                            dir="ltr"
+                        />
+                    </Field>
+                    <Field label="العنوان بالعربية" className="sm:col-span-2">
                         <Input disabled={!canEditSettings} value={db.settings.address} onChange={(e) => updateSettings({ address: e.target.value })} />
+                    </Field>
+                    <Field label="العنوان بالإنجليزية" className="sm:col-span-2">
+                        <Input
+                            disabled={!canEditSettings}
+                            value={db.settings.addressEn}
+                            onChange={(e) => updateSettings({ addressEn: e.target.value })}
+                            dir="ltr"
+                        />
+                    </Field>
+                    <Field label="رابط الموقع على الخريطة" hint="يظهر للمريض كزر «افتح الخريطة»" className="sm:col-span-2">
+                        <Input
+                            disabled={!canEditSettings}
+                            value={db.settings.mapUrl}
+                            onChange={(e) => updateSettings({ mapUrl: e.target.value })}
+                            dir="ltr"
+                            placeholder="https://maps.google.com/…"
+                        />
                     </Field>
                     <Field label="العملة">
                         <Input disabled={!canEditSettings} value={db.settings.currency} onChange={(e) => updateSettings({ currency: e.target.value })} />
@@ -129,6 +331,15 @@ export default function Settings() {
                             min={0}
                             value={db.settings.defaultSessionPrice}
                             onChange={(e) => updateSettings({ defaultSessionPrice: Number(e.target.value) })}
+                        />
+                    </Field>
+                    <Field label="سعر الكشف">
+                        <Input
+                            disabled={!canEditSettings}
+                            type="number"
+                            min={0}
+                            value={db.settings.examPrice}
+                            onChange={(e) => updateSettings({ examPrice: Number(e.target.value) })}
                         />
                     </Field>
                     <Field label="مدة الجلسة الافتراضية (دقيقة)">
@@ -158,8 +369,36 @@ export default function Settings() {
                             />
                         </Field>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Field label="بداية العمل الجمعة">
+                            <Input
+                                disabled={!canEditSettings}
+                                type="time"
+                                value={db.settings.fridayStart}
+                                onChange={(e) => updateSettings({ fridayStart: e.target.value })}
+                            />
+                        </Field>
+                        <Field label="نهاية العمل الجمعة">
+                            <Input
+                                disabled={!canEditSettings}
+                                type="time"
+                                value={db.settings.fridayEnd}
+                                onChange={(e) => updateSettings({ fridayEnd: e.target.value })}
+                            />
+                        </Field>
+                    </div>
+                    <Field label="مناطق الزيارات المنزلية" hint="افصل بين المناطق بفاصلة — تظهر للمريض عند طلب زيارة منزلية" className="sm:col-span-2">
+                        <Input
+                            disabled={!canEditSettings}
+                            value={db.settings.homeVisitAreas}
+                            onChange={(e) => updateSettings({ homeVisitAreas: e.target.value })}
+                            placeholder="الغردقة, الجونة, سهل حشيش, مكادي باي, سوما باي"
+                        />
+                    </Field>
                 </div>
             </Card>
+
+            <ServicesCard />
 
             <Card>
                 <CardHeader
