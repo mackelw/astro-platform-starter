@@ -20,6 +20,15 @@ const { title = 'مركز رينج للعلاج الطبيعي والتأهيل'
         <meta name="generator" content={Astro.generator} />
         <meta name="theme-color" content="#0d9488" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        {/* تثبيت التطبيق على شاشة الموبايل وفتحه بلا شريط متصفح */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Range Physio" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
         <style is:global>
             body {
                 font-family: 'Segoe UI', Tahoma, 'Noto Naskh Arabic', 'Dubai', 'Cairo', Arial, sans-serif;
@@ -34,5 +43,17 @@ const { title = 'مركز رينج للعلاج الطبيعي والتأهيل'
     </head>
     <body class="bg-slate-100 text-slate-800 antialiased">
         <slot />
+
+        <script is:inline>
+            // العامل الخدمي يخزّن التطبيق وبيانات المريض ليعمل بلا إنترنت.
+            // لا يعمل إلا على اتصال آمن — النسخة التي تُفتح بالنقر المزدوج (file://) لا تحتاجه.
+            if ('serviceWorker' in navigator && window.isSecureContext) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('/sw.js').catch(function () {
+                        /* تعذر التسجيل: التطبيق يعمل عاديًا لكن بلا وضع عدم الاتصال */
+                    });
+                });
+            }
+        </script>
     </body>
 </html>

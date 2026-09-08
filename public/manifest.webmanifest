@@ -1,0 +1,20 @@
+{
+    "name": "مركز رينج للعلاج الطبيعي والتأهيل — Range Physiotherapy",
+    "short_name": "Range Physio",
+    "description": "تطبيق مرضى مركز رينج للعلاج الطبيعي والتأهيل بالغردقة: برنامج التمارين المنزلية، المواعيد، وطلبات الحجز.",
+    "lang": "ar",
+    "dir": "auto",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#f1f5f9",
+    "theme_color": "#0d9488",
+    "categories": ["health", "medical", "fitness"],
+    "icons": [
+        { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+        { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    ]
+}

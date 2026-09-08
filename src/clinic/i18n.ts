@@ -153,6 +153,14 @@ const DICT: Dict = {
     'fam.limit': ['وصلت للحد الأقصى لعدد الحسابات الفرعية', 'You have reached the maximum number of family accounts'],
     'fam.mine': ['حسابي', 'My account'],
 
+    /* التثبيت وحالة الاتصال */
+    'pwa.install': ['ثبّت التطبيق على شاشتك', 'Install the app on your phone'],
+    'pwa.installHint': ['يفتح مباشرة كتطبيق، ويعمل بدون إنترنت', 'Opens like an app and works offline'],
+    'pwa.installNow': ['تثبيت', 'Install'],
+    'pwa.later': ['لاحقًا', 'Later'],
+    'pwa.offline': ['أنت بدون إنترنت — تظهر آخر بيانات محفوظة', 'You are offline — showing your last saved data'],
+    'pwa.offlineAction': ['هذا الإجراء يحتاج اتصالًا بالإنترنت', 'This action needs an internet connection'],
+
     /* التواصل */
     'contact.title': ['تواصل مع المركز', 'Contact the clinic'],
     'contact.emergency': ['للحالات الطارئة والاستفسارات السريعة', 'For emergencies and quick questions'],

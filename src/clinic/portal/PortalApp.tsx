@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { PortalProvider, usePortal } from './context';
+import { useInstallPrompt, useOnline } from '../pwa';
 import PortalHome from './views/Home';
 import PortalExercises from './views/Exercises';
 import PortalAppointments from './views/Appointments';
@@ -42,6 +43,48 @@ function ProfileSwitcher() {
                 ))}
             </select>
         </label>
+    );
+}
+
+/** دعوة تثبيت التطبيق على شاشة الموبايل — تظهر حين يتيحها المتصفح فقط */
+function InstallBanner() {
+    const { t } = usePortal();
+    const { canInstall, install, dismiss } = useInstallPrompt();
+    if (!canInstall) return null;
+
+    return (
+        <div className="mx-auto mt-4 flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+            <div className="min-w-0">
+                <p className="text-sm font-bold text-teal-900">{t('pwa.install')}</p>
+                <p className="text-[11px] text-teal-700">{t('pwa.installHint')}</p>
+            </div>
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => void install()}
+                    className="cursor-pointer rounded-lg bg-teal-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-teal-700"
+                >
+                    {t('pwa.installNow')}
+                </button>
+                <button type="button" onClick={dismiss} className="cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100">
+                    {t('pwa.later')}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/** تنبيه انقطاع الشبكة — يوضح للمريض أن ما يراه آخر نسخة محفوظة على جهازه */
+function OfflineBanner() {
+    const { t } = usePortal();
+    const online = useOnline();
+    if (online) return null;
+
+    return (
+        <div className="flex items-center justify-center gap-2 bg-amber-100 px-4 py-2 text-xs font-semibold text-amber-900">
+            <span aria-hidden="true">⚡</span>
+            {t('pwa.offline')}
+        </div>
     );
 }
 
@@ -113,6 +156,7 @@ function Shell() {
                         </button>
                     </div>
                 </div>
+                <OfflineBanner />
                 {error ? (
                     <div className="flex items-center justify-between gap-3 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
                         <span>{error}</span>
@@ -122,6 +166,8 @@ function Shell() {
                     </div>
                 ) : null}
             </header>
+
+            <InstallBanner />
 
             <div className="mx-auto flex max-w-5xl gap-5 px-4 py-5">
                 <aside className="hidden w-52 shrink-0 lg:block">

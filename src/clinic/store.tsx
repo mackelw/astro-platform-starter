@@ -19,6 +19,7 @@ import type {
 import { DB_KEY, emptyDatabase, loadDatabase, normalize, saveDatabase, seedDatabase, uid } from './storage';
 import { api, ApiError, MODE } from './api';
 import { can as canRole, type Action, type Resource } from './permissions';
+import { clearOfflineData } from './pwa';
 
 type Collection =
     | 'patients'
@@ -111,6 +112,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (err instanceof ApiError && err.status === 401) {
             setUser(null);
             setStatus('login');
+            clearOfflineData(); // انتهت الجلسة: لا يبقى ملف طبي على الجهاز
         }
         setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     }, []);
@@ -137,6 +139,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (err instanceof ApiError && err.status === 401) {
                 setStatus('login');
                 setUser(null);
+                clearOfflineData();
                 return;
             }
             setStatus('error');
@@ -275,6 +278,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
             await api.logout();
         } finally {
+            clearOfflineData(); // الخروج يمحو البيانات المحفوظة للعمل بلا إنترنت
             setUser(null);
             setDb(emptyDatabase());
             setStatus('login');
