@@ -25,6 +25,7 @@ interface StoreValue {
     clearError: () => void;
     can: (resource: Resource, action: Action) => boolean;
     add: <K extends Collection>(collection: K, item: Omit<ItemOf[K], 'id' | 'createdAt'>) => void;
+    addMany: <K extends Collection>(collection: K, items: Omit<ItemOf[K], 'id' | 'createdAt'>[]) => Promise<void>;
     update: <K extends Collection>(collection: K, id: ID, patch: Partial<ItemOf[K]>) => void;
     remove: (collection: Collection, id: ID) => void;
     updateSettings: (patch: Partial<ClinicSettings>) => void;
@@ -130,7 +131,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, [isLocal, refresh]);
 
     const send = useCallback(
-        async (mutation: { resource: string; op: 'create' | 'update' | 'delete'; id?: ID; data?: unknown }) => {
+        async (mutation: { resource: string; op: 'create' | 'createMany' | 'update' | 'delete'; id?: ID; data?: unknown; items?: unknown[] }) => {
             try {
                 const { db: next } = await api.mutate(mutation);
                 setDb(normalize(next));
@@ -151,6 +152,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
             const created = { ...(item as object), id: uid(collection[0] + '_'), createdAt: new Date().toISOString() } as ItemOf[K];
             setDb((prev) => ({ ...prev, [collection]: [...(prev[collection] as ItemOf[K][]), created] }) as Database);
+        },
+        [isLocal, send]
+    );
+
+    /** إضافة عدة سجلات دفعة واحدة (استيراد قائمة مرضى مثلًا) */
+    const addMany = useCallback(
+        async <K extends Collection>(collection: K, items: Omit<ItemOf[K], 'id' | 'createdAt'>[]) => {
+            if (items.length === 0) return;
+            if (!isLocal) {
+                await send({ resource: collection, op: 'createMany', items });
+                return;
+            }
+            const created = items.map((item) => ({ ...(item as object), id: uid(collection[0] + '_'), createdAt: new Date().toISOString() }) as ItemOf[K]);
+            setDb((prev) => ({ ...prev, [collection]: [...(prev[collection] as ItemOf[K][]), ...created] }) as Database);
         },
         [isLocal, send]
     );
@@ -252,6 +267,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             clearError,
             can,
             add,
+            addMany,
             update,
             remove,
             updateSettings,
@@ -263,7 +279,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             resetToSeed,
             clearAll
         }),
-        [db, user, status, error, clearError, can, add, update, remove, updateSettings, signIn, signOut, setupAdmin, refresh, replaceAll, resetToSeed, clearAll]
+        [
+            db,
+            user,
+            status,
+            error,
+            clearError,
+            can,
+            add,
+            addMany,
+            update,
+            remove,
+            updateSettings,
+            signIn,
+            signOut,
+            setupAdmin,
+            refresh,
+            replaceAll,
+            resetToSeed,
+            clearAll
+        ]
     );
 
     return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -95,6 +95,7 @@ function sanitize(resource: Exclude<Resource, 'users'>, input: unknown): Record<
 
 export type Mutation =
     | { resource: Exclude<Resource, 'users' | 'settings'>; op: 'create'; data: unknown }
+    | { resource: Exclude<Resource, 'users' | 'settings'>; op: 'createMany'; items: unknown[] }
     | { resource: Exclude<Resource, 'users' | 'settings'>; op: 'update'; id: ID; data: unknown }
     | { resource: Exclude<Resource, 'users' | 'settings'>; op: 'delete'; id: ID }
     | { resource: 'settings'; op: 'update'; data: unknown };
@@ -102,18 +103,22 @@ export type Mutation =
 const COLLECTIONS = ['patients', 'therapists', 'appointments', 'sessions', 'payments', 'expenses'] as const;
 type CollectionName = (typeof COLLECTIONS)[number];
 
+/** أقصى عدد سجلات في عملية استيراد واحدة */
+export const MAX_IMPORT = 500;
+
 export function isValidMutation(body: unknown): body is Mutation {
     const m = body as Mutation;
     if (!m || typeof m !== 'object') return false;
     if (m.resource === 'settings') return m.op === 'update';
     if (!COLLECTIONS.includes(m.resource as CollectionName)) return false;
     if (m.op === 'create') return true;
+    if (m.op === 'createMany') return Array.isArray(m.items) && m.items.length > 0 && m.items.length <= MAX_IMPORT;
     return (m.op === 'update' || m.op === 'delete') && typeof (m as { id?: unknown }).id === 'string';
 }
 
 /** يطبّق التعديل بعد التأكد من الصلاحية، ويعيد رسالة خطأ إن كان ممنوعًا */
 export function applyMutation(db: ServerDatabase, user: ServerUser, mutation: Mutation): string | null {
-    const action: Action = mutation.op;
+    const action: Action = mutation.op === 'createMany' ? 'create' : mutation.op;
     if (!can(user.role, mutation.resource, action)) return 'ليس لديك صلاحية لهذا الإجراء';
 
     if (mutation.resource === 'settings') {
@@ -136,6 +141,16 @@ export function applyMutation(db: ServerDatabase, user: ServerUser, mutation: Mu
         return null;
     }
 
+    // استيراد دفعة واحدة (قائمة مرضى مثلًا) — نفس التنقية المطبقة على السجل المفرد
+    if (mutation.op === 'createMany') {
+        for (const item of mutation.items) {
+            const row = sanitize(collection, item);
+            if (collection === 'sessions' && !can(user.role, 'payments', 'read')) delete row.price;
+            list.push(buildRecord(db, collection, row));
+        }
+        return null;
+    }
+
     const clean = sanitize(collection, mutation.data);
 
     // من لا يرى البيانات المالية لا يحدد أسعار الجلسات — السعر يأتي من ملف المريض
@@ -144,12 +159,7 @@ export function applyMutation(db: ServerDatabase, user: ServerUser, mutation: Mu
     }
 
     if (mutation.op === 'create') {
-        const record: Record<string, unknown> = { ...clean, id: newId(collection[0] + '_'), createdAt: new Date().toISOString() };
-        if (collection === 'sessions' && record.price === undefined) {
-            const patient = db.patients.find((p) => p.id === record.patientId);
-            record.price = patient?.sessionPrice ?? db.settings.defaultSessionPrice;
-        }
-        list.push(record);
+        list.push(buildRecord(db, collection, clean));
         return null;
     }
 
@@ -157,6 +167,15 @@ export function applyMutation(db: ServerDatabase, user: ServerUser, mutation: Mu
     if (!target) return 'العنصر غير موجود';
     Object.assign(target, clean);
     return null;
+}
+
+function buildRecord(db: ServerDatabase, collection: CollectionName, clean: Record<string, unknown>): Record<string, unknown> {
+    const record: Record<string, unknown> = { ...clean, id: newId(collection[0] + '_'), createdAt: new Date().toISOString() };
+    if (collection === 'sessions' && record.price === undefined) {
+        const patient = db.patients.find((p) => p.id === record.patientId);
+        record.price = patient?.sessionPrice ?? db.settings.defaultSessionPrice;
+    }
+    return record;
 }
 
 /** النسخة التي يراها هذا الدور: تُحذف منها البيانات المالية لمن لا يملك صلاحيتها */

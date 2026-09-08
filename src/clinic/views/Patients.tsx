@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import type { Patient } from '../types';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Table, Td, Textarea } from '../components/ui';
+import ImportPatients from '../components/ImportPatients';
 import { age, downloadFile, formatDate, genderLabels, money, nextPatientCode, patientBalance, searchPatients, toCSV, todayISO } from '../utils';
 
 type Draft = Omit<Patient, 'id' | 'createdAt'>;
@@ -127,6 +128,7 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
     const [query, setQuery] = useState('');
     const [showArchived, setShowArchived] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const [editing, setEditing] = useState<Patient | null>(null);
 
     const rows = useMemo(() => {
@@ -158,14 +160,19 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
                         تصدير CSV
                     </Button>
                     {can('patients', 'create') ? (
-                        <Button
-                            onClick={() => {
-                                setEditing(null);
-                                setFormOpen(true);
-                            }}
-                        >
-                            + مريض جديد
-                        </Button>
+                        <>
+                            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                                استيراد قائمة
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setEditing(null);
+                                    setFormOpen(true);
+                                }}
+                            >
+                                + مريض جديد
+                            </Button>
+                        </>
                     ) : null}
                 </div>
             </div>
@@ -253,6 +260,7 @@ export default function Patients({ onOpenPatient }: { onOpenPatient: (id: string
             </p>
 
             <PatientForm open={formOpen} onClose={() => setFormOpen(false)} editing={editing} />
+            <ImportPatients open={importOpen} onClose={() => setImportOpen(false)} />
         </div>
     );
 }

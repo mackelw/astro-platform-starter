@@ -47,7 +47,7 @@ export const api = {
 
     logout: () => request<{ ok: boolean }>('/api/clinic/logout', { method: 'POST' }),
 
-    mutate: (mutation: { resource: string; op: 'create' | 'update' | 'delete'; id?: string; data?: unknown }) =>
+    mutate: (mutation: { resource: string; op: 'create' | 'createMany' | 'update' | 'delete'; id?: string; data?: unknown; items?: unknown[] }) =>
         request<{ db: Database }>('/api/clinic/mutate', { method: 'POST', body: JSON.stringify(mutation) }),
 
     listUsers: () => request<{ users: PublicUser[] }>('/api/clinic/users'),
