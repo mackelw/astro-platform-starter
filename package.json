@@ -10,7 +10,8 @@
         "astro": "astro",
         "build:offline": "astro build && node scripts/build-offline.mjs",
         "build:server": "CLINIC_TARGET=node astro build",
-        "start:server": "node ./dist/server/entry.mjs"
+        "start:server": "node ./dist/server/entry.mjs",
+        "check:compat": "npx --yes tsx scripts/check-forward-compat.ts"
     },
     "dependencies": {
         "@astrojs/netlify": "^6.2.3",

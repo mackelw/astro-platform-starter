@@ -412,12 +412,32 @@ export function seedDatabase(): Database {
 }
 
 /** دمج قاعدة بيانات محفوظة مع الشكل الحالي حتى لا تنكسر عند إضافة حقول جديدة */
+/**
+ * مفاتيح يديرها السيرفر وحده ولا تمر عبر التطبيع العام،
+ * حتى لا تتسرب أسرار لو مرّت حمولة غير متوقعة على العميل.
+ */
+const SERVER_ONLY_KEYS = ['users', 'authSessions', 'portalSessions'];
+
 export function normalize(raw: unknown): Database {
     const base = emptyDatabase();
     if (!raw || typeof raw !== 'object') return base;
     const db = raw as Partial<Database>;
+
+    /*
+     * نحافظ على أي مفاتيح أضافتها نسخة أحدث من البرنامج.
+     * السبب: نسختان مختلفتان قد تعملان على نفس القاعدة (نسخة أساسية وأخرى احتياطية
+     * متجمدة عند إصدار أقدم). بدون هذا الحفظ، أول كتابة من النسخة الأقدم تمحو كل
+     * جدول لا تعرفه — وهي كارثة صامتة لأن كل شيء يبدو سليمًا.
+     */
+    const carried: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        if (!SERVER_ONLY_KEYS.includes(key)) carried[key] = value;
+    }
+
     return {
-        version: DB_VERSION,
+        ...carried,
+        // لا نُنزل رقم الإصدار: نسخة أقدم تكتب فوق قاعدة أحدث تترك العلامة كما هي
+        version: Math.max(DB_VERSION, Number(db.version) || 0),
         settings: { ...base.settings, ...(db.settings || {}) },
         patients: Array.isArray(db.patients) ? db.patients : [],
         therapists: Array.isArray(db.therapists) ? db.therapists : [],
