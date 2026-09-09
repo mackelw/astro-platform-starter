@@ -58,5 +58,9 @@ export const api = {
     updateUser: (payload: { id: string; name?: string; role?: Role; therapistId?: string; active?: boolean; password?: string }) =>
         request<{ users: PublicUser[] }>('/api/clinic/users', { method: 'PATCH', body: JSON.stringify(payload) }),
 
-    deleteUser: (id: string) => request<{ users: PublicUser[] }>(`/api/clinic/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    deleteUser: (id: string) => request<{ users: PublicUser[] }>(`/api/clinic/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    /** إصدار مفتاح بوابة المريض أو تجديده أو إبطاله */
+    access: (patientId: string, action: 'issue' | 'regenerate' | 'revoke') =>
+        request<{ db: Database }>('/api/clinic/access', { method: 'POST', body: JSON.stringify({ patientId, action }) })
 };

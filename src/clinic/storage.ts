@@ -1,7 +1,7 @@
-import type { Database } from './types';
+import type { Database, Exercise, Program, ProgramItem, ProgramTemplate } from './types';
 
 export const DB_KEY = 'pt-clinic-db-v1';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export function emptyDatabase(): Database {
     return {
@@ -22,7 +22,14 @@ export function emptyDatabase(): Database {
         appointments: [],
         sessions: [],
         payments: [],
-        expenses: []
+        expenses: [],
+        exercises: [],
+        programs: [],
+        programTemplates: [],
+        programLogs: [],
+        promResponses: [],
+        portalMessages: [],
+        patientAccess: []
     };
 }
 
@@ -34,6 +41,150 @@ function iso(daysFromToday: number): string {
     const d = new Date();
     d.setDate(d.getDate() + daysFromToday);
     return d.toISOString().slice(0, 10);
+}
+
+/**
+ * مكتبة تمارين أولية بالعربية يبدأ بها المركز، بلا وسائط —
+ * يرفع المركز فيديوهاته الخاصة لاحقًا من شاشة التمارين.
+ */
+export function starterExercises(): Exercise[] {
+    const base = (
+        name: string,
+        region: Exercise['region'],
+        equipment: string,
+        level: Exercise['level'],
+        instructions: string,
+        sets: number,
+        reps: number,
+        hold: number,
+        tags: string[]
+    ): Exercise => ({
+        id: uid('x_'),
+        name,
+        region,
+        equipment,
+        level,
+        instructions,
+        videoUrl: '',
+        imageUrl: '',
+        defaultSets: sets,
+        defaultReps: reps,
+        defaultHold: hold,
+        defaultPerDay: 1,
+        tags,
+        active: true,
+        createdAt: new Date().toISOString()
+    });
+
+    return [
+        base('إمالة الحوض الخلفية', 'back', 'بدون', 'easy', 'استلقِ على ظهرك وثنِ ركبتيك. اضغط أسفل ظهرك تجاه الأرض بشدّ عضلات البطن، ثم استرخِ.', 3, 10, 5, [
+            'أسفل الظهر',
+            'تنشيط'
+        ]),
+        base('تمرين القطة والجمل', 'back', 'بدون', 'easy', 'من وضع الزحف، قوّس ظهرك لأعلى ببطء ثم اخفضه لأسفل. تنفّس مع الحركة ولا تصل لحد الألم.', 2, 10, 3, [
+            'مدى حركة',
+            'أسفل الظهر'
+        ]),
+        base(
+            'الجسر (رفع الحوض)',
+            'core',
+            'بدون',
+            'easy',
+            'مستلقيًا وركبتاك مثنيتان، ارفع حوضك حتى يستقيم الجسم من الركبة للكتف، اثبت ثم انزل ببطء.',
+            3,
+            12,
+            5,
+            ['تقوية', 'ألوية']
+        ),
+        base('تمرين البلانك على الكوعين', 'core', 'بدون', 'medium', 'استند على كوعيك وأطراف قدميك مع استقامة الجسم. شدّ البطن ولا تدع الحوض يهبط.', 3, 1, 20, [
+            'ثبات',
+            'جذع'
+        ]),
+        base(
+            'رفع الساق المستقيمة',
+            'knee',
+            'بدون',
+            'easy',
+            'مستلقيًا، ثنِ الركبة السليمة وأبقِ المصابة مستقيمة، ارفعها 30 سم واثبت ثم أنزلها ببطء.',
+            3,
+            15,
+            5,
+            ['رباط صليبي', 'الفخذ الأمامية']
+        ),
+        base(
+            'شدّ العضلة الرباعية',
+            'knee',
+            'بدون',
+            'easy',
+            'اجلس والساق ممدودة، اضغط بمؤخرة الركبة تجاه الأرض وشدّ عضلة الفخذ الأمامية، ثم استرخِ.',
+            3,
+            10,
+            6,
+            ['تنشيط', 'ركبة']
+        ),
+        base('ثني الركبة على الكرسي', 'knee', 'كرسي', 'easy', 'اجلس وحرّك القدم للخلف تحت الكرسي حتى تشعر بشدّ، اثبت ثم عد. لا تتجاوز حد الألم.', 3, 10, 8, [
+            'مدى حركة',
+            'ما بعد الجراحة'
+        ]),
+        base('نصف قرفصاء بالاستناد للحائط', 'knee', 'حائط', 'medium', 'قف مستندًا بظهرك للحائط، انزل حتى تصل الركبة لزاوية مريحة، اثبت ثم ارتفع.', 3, 10, 10, [
+            'تقوية',
+            'وظيفي'
+        ]),
+        base(
+            'تسلّق الأصابع على الحائط',
+            'shoulder',
+            'حائط',
+            'easy',
+            'قف مواجهًا الحائط وحرّك أصابعك صعودًا كالسلّم لأقصى ارتفاع محتمل، ثم انزل ببطء.',
+            3,
+            10,
+            3,
+            ['كتف متجمد', 'مدى حركة']
+        ),
+        base(
+            'البندول (تمرين كودمان)',
+            'shoulder',
+            'بدون',
+            'easy',
+            'انحنِ للأمام مستندًا بيدك السليمة، ودع الذراع المصابة تتدلى وتتأرجح في دوائر صغيرة.',
+            2,
+            15,
+            0,
+            ['كتف', 'استرخاء']
+        ),
+        base(
+            'الدوران الخارجي بحبل المقاومة',
+            'shoulder',
+            'حبل مقاومة',
+            'medium',
+            'الكوع ملتصق بالجنب بزاوية قائمة، اسحب الحبل للخارج مع ثبات الكوع، ثم عد ببطء.',
+            3,
+            12,
+            2,
+            ['كفة مدورة', 'تقوية']
+        ),
+        base(
+            'شدّ عضلات الرقبة الجانبية',
+            'neck',
+            'بدون',
+            'easy',
+            'أمِل رأسك تجاه الكتف حتى تشعر بشدّ على الجانب الآخر، اثبت دون ألم، ثم بدّل الجهة.',
+            2,
+            3,
+            20,
+            ['إطالة', 'رقبة']
+        ),
+        base('سحب الذقن للخلف', 'neck', 'بدون', 'easy', 'اسحب ذقنك للخلف كأنك تصنع ذقنًا مزدوجًا دون رفع الرأس، اثبت ثم استرخِ.', 3, 10, 5, ['وضعية', 'رقبة']),
+        base('شدّ أوتار الركبة الخلفية', 'hip', 'بدون', 'easy', 'مستلقيًا، ارفع الساق مستقيمة بمساعدة منشفة حول القدم حتى تشعر بشدّ خلف الفخذ.', 2, 3, 30, [
+            'إطالة',
+            'مرونة'
+        ]),
+        base('الوقوف على قدم واحدة', 'balance', 'بدون', 'medium', 'قف على قدم واحدة بجوار حائط أو كرسي للأمان، حافظ على توازنك ثم بدّل القدم.', 3, 1, 30, [
+            'توازن',
+            'كبار السن'
+        ]),
+        base('رفع الكعبين', 'ankle', 'بدون', 'easy', 'قف مستندًا بيديك، ارفع كعبيك عن الأرض واثبت ثم انزل ببطء.', 3, 15, 3, ['كاحل', 'ربلة الساق'])
+    ];
 }
 
 /** بيانات تجريبية تظهر عند أول تشغيل حتى لا تكون الشاشات فارغة */
@@ -184,6 +335,81 @@ export function seedDatabase(): Database {
 
     db.expenses = [{ id: uid('e_'), date: iso(-3), title: 'مستلزمات طبية', category: 'مستلزمات', amount: 450, notes: '', createdAt: new Date().toISOString() }];
 
+    /* ------------------ وحدة التأهيل عن بُعد ------------------ */
+
+    db.exercises = starterExercises();
+
+    const pick = (name: string): Exercise => db.exercises.find((x) => x.name === name) ?? db.exercises[0];
+    const item = (exercise: Exercise, patch: Partial<ProgramItem> = {}): ProgramItem => ({
+        id: uid('i_'),
+        exerciseId: exercise.id,
+        sets: exercise.defaultSets,
+        reps: exercise.defaultReps,
+        hold: exercise.defaultHold,
+        rest: 30,
+        perDay: exercise.defaultPerDay,
+        side: 'both',
+        resistance: '',
+        note: '',
+        ...patch
+    });
+
+    const backItems = [
+        item(pick('إمالة الحوض الخلفية')),
+        item(pick('تمرين القطة والجمل')),
+        item(pick('الجسر (رفع الحوض)')),
+        item(pick('شدّ أوتار الركبة الخلفية'))
+    ];
+
+    const template: ProgramTemplate = {
+        id: uid('tpl_'),
+        title: 'بروتوكول أسفل الظهر — المرحلة الأولى',
+        diagnosis: 'انزلاق غضروفي قطني',
+        daysPerWeek: 5,
+        notes: 'توقف عن أي تمرين يسبب ألمًا حادًا أو تنميلًا في الساق وأبلغ الأخصائي.',
+        items: backItems,
+        proms: ['nprs', 'odi'],
+        createdAt: new Date().toISOString()
+    };
+    db.programTemplates = [template];
+
+    const program: Program = {
+        id: uid('pr_'),
+        patientId: p1.id,
+        therapistId: t1.id,
+        title: 'برنامج منزلي — أسفل الظهر',
+        startDate: iso(-7),
+        endDate: iso(21),
+        daysPerWeek: 5,
+        status: 'active',
+        notes: template.notes,
+        items: backItems.map((row) => ({ ...row, id: uid('i_') })),
+        proms: ['nprs', 'odi'],
+        createdAt: new Date().toISOString()
+    };
+    db.programs = [program];
+
+    // سجل التزام لأيام مضت حتى تظهر لوحة المتابعة بأرقام حقيقية
+    db.programLogs = [
+        { day: -5, done: 4, pain: 7 },
+        { day: -4, done: 4, pain: 6 },
+        { day: -3, done: 3, pain: 6 },
+        { day: -1, done: 4, pain: 5 },
+        { day: 0, done: 2, pain: 5 }
+    ].map(({ day, done, pain }) => ({
+        id: uid('g_'),
+        programId: program.id,
+        patientId: p1.id,
+        date: iso(day),
+        doneItemIds: program.items.slice(0, done).map((row) => row.id),
+        pain,
+        difficulty: 2,
+        note: '',
+        createdAt: new Date().toISOString()
+    }));
+
+    db.patientAccess = [{ patientId: p1.id, token: uid('') + uid(''), code: '481207', enabled: true, createdAt: new Date().toISOString(), lastSeenAt: '' }];
+
     return db;
 }
 
@@ -200,7 +426,14 @@ export function normalize(raw: unknown): Database {
         appointments: Array.isArray(db.appointments) ? db.appointments : [],
         sessions: Array.isArray(db.sessions) ? db.sessions : [],
         payments: Array.isArray(db.payments) ? db.payments : [],
-        expenses: Array.isArray(db.expenses) ? db.expenses : []
+        expenses: Array.isArray(db.expenses) ? db.expenses : [],
+        exercises: Array.isArray(db.exercises) ? db.exercises : [],
+        programs: Array.isArray(db.programs) ? db.programs : [],
+        programTemplates: Array.isArray(db.programTemplates) ? db.programTemplates : [],
+        programLogs: Array.isArray(db.programLogs) ? db.programLogs : [],
+        promResponses: Array.isArray(db.promResponses) ? db.promResponses : [],
+        portalMessages: Array.isArray(db.portalMessages) ? db.portalMessages : [],
+        patientAccess: Array.isArray(db.patientAccess) ? db.patientAccess : []
     };
 }
 

@@ -7,19 +7,23 @@ import Patients from './views/Patients';
 import PatientProfile from './views/PatientProfile';
 import Appointments from './views/Appointments';
 import SessionsView from './views/Sessions';
+import Exercises from './views/Exercises';
+import TeleRehab from './views/TeleRehab';
 import Billing from './views/Billing';
 import Reports from './views/Reports';
 import Settings from './views/Settings';
 import { ErrorScreen, LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
 import { formatDateLong, todayISO } from './utils';
 
-type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
+type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'telerehab' | 'exercises' | 'billing' | 'reports' | 'settings';
 
 const NAV: { key: View; label: string; icon: string }[] = [
     { key: 'dashboard', label: 'لوحة التحكم', icon: '▦' },
     { key: 'appointments', label: 'المواعيد', icon: '🗓' },
     { key: 'patients', label: 'المرضى', icon: '👤' },
     { key: 'sessions', label: 'الجلسات', icon: '🩺' },
+    { key: 'telerehab', label: 'المتابعة عن بُعد', icon: '📡' },
+    { key: 'exercises', label: 'التمارين', icon: '🏋' },
     { key: 'billing', label: 'الحسابات', icon: '💳' },
     { key: 'reports', label: 'التقارير', icon: '📊' },
     { key: 'settings', label: 'الإعدادات', icon: '⚙' }
@@ -83,6 +87,8 @@ function Shell() {
     else if (allowed === 'appointments') content = <Appointments onOpenPatient={openPatient} />;
     else if (allowed === 'patients') content = <Patients onOpenPatient={openPatient} />;
     else if (allowed === 'sessions') content = <SessionsView onOpenPatient={openPatient} />;
+    else if (allowed === 'telerehab') content = <TeleRehab onOpenPatient={openPatient} />;
+    else if (allowed === 'exercises') content = <Exercises />;
     else if (allowed === 'billing') content = <Billing onOpenPatient={openPatient} />;
     else if (allowed === 'reports') content = <Reports />;
     else content = <Settings />;

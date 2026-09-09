@@ -20,7 +20,7 @@ function toHex(buffer: ArrayBuffer): string {
     return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function randomHex(bytes: number): string {
+export function randomHex(bytes: number): string {
     const array = new Uint8Array(bytes);
     crypto.getRandomValues(array);
     return [...array].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -45,7 +45,7 @@ function safeEqual(a: string, b: string): boolean {
     return diff === 0;
 }
 
-async function hashToken(token: string): Promise<string> {
+export async function hashToken(token: string): Promise<string> {
     return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
 }
 

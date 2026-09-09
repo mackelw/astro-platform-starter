@@ -33,9 +33,18 @@ export interface ServerSession {
     expiresAt: string;
 }
 
+/** جلسة مريض داخل بوابة التأهيل — منفصلة تمامًا عن جلسات موظفي المركز */
+export interface PortalSession {
+    tokenHash: string;
+    patientId: ID;
+    createdAt: string;
+    expiresAt: string;
+}
+
 export interface ServerDatabase extends Database {
     users: ServerUser[];
     authSessions: ServerSession[]; // جلسات تسجيل الدخول (غير الجلسات العلاجية)
+    portalSessions: PortalSession[];
 }
 
 const BLOB_STORE = 'clinic';
@@ -44,7 +53,7 @@ const REDIS_KEY = 'clinic:database';
 const FILE_PATH = resolve(process.env.CLINIC_DATA_FILE || '.data/clinic-db.json');
 
 export function emptyServerDatabase(): ServerDatabase {
-    return { ...emptyDatabase(), users: [], authSessions: [] };
+    return { ...emptyDatabase(), users: [], authSessions: [], portalSessions: [] };
 }
 
 function normalizeServer(raw: unknown): ServerDatabase {
@@ -52,7 +61,8 @@ function normalizeServer(raw: unknown): ServerDatabase {
     return {
         ...normalize(raw),
         users: Array.isArray(source.users) ? source.users : [],
-        authSessions: Array.isArray(source.authSessions) ? source.authSessions : []
+        authSessions: Array.isArray(source.authSessions) ? source.authSessions : [],
+        portalSessions: Array.isArray(source.portalSessions) ? source.portalSessions : []
     };
 }
 
