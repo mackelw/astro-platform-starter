@@ -299,14 +299,20 @@ export default function ProgramPanel({ patient }: { patient: Patient }) {
     const printProgram = () => {
         if (!current) return;
         const rows = current.items
-            .map(
-                (item, index) => `<tr>
+            .map((item, index) => {
+                const exercise = db.exercises.find((x) => x.id === item.exerciseId);
+                const notes = [
+                    item.note ? `<span style="font-size:11px;color:#475569">${escapeHtml(item.note)}</span>` : '',
+                    // التحذير يُطبع مع التمرين لأن الورقة قد تُقرأ بعيدًا عن أي شاشة
+                    exercise?.cautions ? `<span style="font-size:11px;color:#be123c">⚠ ${escapeHtml(exercise.cautions)}</span>` : ''
+                ].filter(Boolean);
+                return `<tr>
                     <td>${index + 1}</td>
-                    <td><b>${escapeHtml(exerciseName(db, item.exerciseId))}</b>${item.note ? `<br><span style="font-size:11px;color:#475569">${escapeHtml(item.note)}</span>` : ''}</td>
+                    <td><b>${escapeHtml(exerciseName(db, item.exerciseId))}</b>${notes.length ? '<br>' + notes.join('<br>') : ''}</td>
                     <td>${escapeHtml(itemSummary(item))}</td>
                     <td></td>
-                </tr>`
-            )
+                </tr>`;
+            })
             .join('');
 
         printHTML(

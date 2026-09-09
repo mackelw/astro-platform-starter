@@ -118,9 +118,23 @@ export function exerciseName(db: Database, exerciseId: ID): string {
     return db.exercises.find((x) => x.id === exerciseId)?.name ?? 'تمرين محذوف';
 }
 
-/** وصف البارامترات في سطر واحد كما يُطبع للمريض: «٣ مجموعات × ١٢ تكرار — ثبات ٥ ث» */
-export function itemSummary(item: { sets: number; reps: number; hold: number; perDay: number; side: Side; resistance: string }): string {
+const SIDE_LABELS_EN: Record<Side, string> = { both: 'Both sides', right: 'Right', left: 'Left' };
+
+/**
+ * وصف البارامترات في سطر واحد: «3 مجموعة · 12 تكرار · ثبات 3 ثانية».
+ * هذا أهم سطر يقرأه المريض، فله نسخة إنجليزية لمن اختار الإنجليزية في بوابته.
+ */
+export function itemSummary(item: { sets: number; reps: number; hold: number; perDay: number; side: Side; resistance: string }, english = false): string {
     const parts: string[] = [];
+    if (english) {
+        if (item.sets > 0) parts.push(`${item.sets} ${item.sets === 1 ? 'set' : 'sets'}`);
+        if (item.reps > 0) parts.push(`${item.reps} ${item.reps === 1 ? 'rep' : 'reps'}`);
+        if (item.hold > 0) parts.push(`hold ${item.hold}s`);
+        if (item.perDay > 1) parts.push(`${item.perDay}× a day`);
+        if (item.side !== 'both') parts.push(SIDE_LABELS_EN[item.side]);
+        if (item.resistance) parts.push(item.resistance);
+        return parts.join(' · ') || '—';
+    }
     if (item.sets > 0) parts.push(`${item.sets} مجموعة`);
     if (item.reps > 0) parts.push(`${item.reps} تكرار`);
     if (item.hold > 0) parts.push(`ثبات ${item.hold} ثانية`);

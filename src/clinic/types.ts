@@ -140,14 +140,28 @@ export type BodyRegion = 'neck' | 'shoulder' | 'elbow' | 'wrist' | 'back' | 'hip
 
 export type ExerciseLevel = 'easy' | 'medium' | 'hard';
 
-/** تمرين في مكتبة المركز. الوسائط روابط يملك المركز حق استخدامها (تصوير خاص أو مكتبة مرخّصة). */
+/**
+ * تمرين في مكتبة المركز. الوسائط روابط يملك المركز حق استخدامها (تصوير خاص أو مكتبة مرخّصة).
+ *
+ * النص مكتوب بلغتين: مركز في مدينة سياحية يعالج مرضى لا يقرؤون العربية، والحقول
+ * الإنجليزية تُعرض لهم في بوابة المريض. الحقول الإنجليزية اختيارية — إن تُركت فارغة
+ * يظهر النص العربي.
+ */
 export interface Exercise {
     id: ID;
     name: string;
+    nameEn: string;
+    summary: string; // سطر واحد يشرح فائدة التمرين — يظهر في البطاقات والطباعة
+    summaryEn: string;
     region: BodyRegion;
     equipment: string; // الأداة المطلوبة: بدون، حبل مقاومة، كرة، دمبل…
+    equipmentEn: string;
     level: ExerciseLevel;
     instructions: string; // خطوات التنفيذ كما تُقرأ للمريض
+    instructionsEn: string;
+    /** تحذير سلامة يظهر للمريض بارزًا: متى يتوقف وما الخطأ الشائع */
+    cautions: string;
+    cautionsEn: string;
     videoUrl: string;
     imageUrl: string;
     // قيم افتراضية تُنسخ في البرنامج عند إضافة التمرين، ويعدّلها الأخصائي عند الحاجة

@@ -4,10 +4,17 @@ import type { ID, PromTemplateId, Side } from '../types';
 export interface PortalExercise {
     id: ID;
     name: string;
+    nameEn: string;
+    summary: string;
+    summaryEn: string;
     instructions: string;
+    instructionsEn: string;
+    cautions: string;
+    cautionsEn: string;
     videoUrl: string;
     imageUrl: string;
     equipment: string;
+    equipmentEn: string;
 }
 
 export interface PortalItem {

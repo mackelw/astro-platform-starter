@@ -194,10 +194,17 @@ export async function loginByCode(context: APIContext, db: ServerDatabase, phone
 export interface PortalExercise {
     id: ID;
     name: string;
+    nameEn: string;
+    summary: string;
+    summaryEn: string;
     instructions: string;
+    instructionsEn: string;
+    cautions: string;
+    cautionsEn: string;
     videoUrl: string;
     imageUrl: string;
     equipment: string;
+    equipmentEn: string;
 }
 
 export interface PortalView {
@@ -244,7 +251,21 @@ export function portalView(db: ServerDatabase, patient: Patient): PortalView {
     const usedIds = new Set((program?.items ?? []).map((i) => i.exerciseId));
     const exercises: PortalExercise[] = db.exercises
         .filter((x: Exercise) => usedIds.has(x.id))
-        .map((x) => ({ id: x.id, name: x.name, instructions: x.instructions, videoUrl: x.videoUrl, imageUrl: x.imageUrl, equipment: x.equipment }));
+        .map((x) => ({
+            id: x.id,
+            name: x.name,
+            nameEn: x.nameEn ?? '',
+            summary: x.summary ?? '',
+            summaryEn: x.summaryEn ?? '',
+            instructions: x.instructions,
+            instructionsEn: x.instructionsEn ?? '',
+            cautions: x.cautions ?? '',
+            cautionsEn: x.cautionsEn ?? '',
+            videoUrl: x.videoUrl,
+            imageUrl: x.imageUrl,
+            equipment: x.equipment,
+            equipmentEn: x.equipmentEn ?? ''
+        }));
 
     const today = new Date().toISOString().slice(0, 10);
 

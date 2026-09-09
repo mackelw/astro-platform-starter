@@ -13,8 +13,15 @@ type Draft = Omit<Exercise, 'id' | 'createdAt'>;
 function emptyDraft(): Draft {
     return {
         name: '',
+        nameEn: '',
+        summary: '',
+        summaryEn: '',
+        instructionsEn: '',
+        cautions: '',
+        cautionsEn: '',
         region: 'general',
         equipment: 'بدون',
+        equipmentEn: 'None',
         level: 'easy',
         instructions: '',
         videoUrl: '',
@@ -33,6 +40,7 @@ export function ExerciseForm({ open, onClose, editing }: { open: boolean; onClos
     const [draft, setDraft] = useState<Draft>(emptyDraft);
     const [tagText, setTagText] = useState('');
     const [key, setKey] = useState('');
+    const [showEnglish, setShowEnglish] = useState(false);
 
     // إعادة تعبئة النموذج عند تغيّر التمرين المفتوح دون useEffect
     const currentKey = `${open}-${editing?.id ?? 'new'}`;
@@ -62,6 +70,7 @@ export function ExerciseForm({ open, onClose, editing }: { open: boolean; onClos
         onClose();
     };
 
+    const hasEnglish = Boolean(draft.nameEn || draft.instructionsEn);
     const preview = videoEmbed(draft.videoUrl);
 
     return (
@@ -83,7 +92,10 @@ export function ExerciseForm({ open, onClose, editing }: { open: boolean; onClos
         >
             <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="اسم التمرين" className="sm:col-span-2">
-                    <Input value={draft.name} onChange={(e) => set('name', e.target.value)} placeholder="مثال: الجسر (رفع الحوض)" />
+                    <Input value={draft.name} onChange={(e) => set('name', e.target.value)} placeholder="مثال: جسر الأرداف" />
+                </Field>
+                <Field label="ملخص الفائدة" hint="سطر واحد يظهر في البطاقات وفي البرنامج المطبوع" className="sm:col-span-2">
+                    <Input value={draft.summary} onChange={(e) => set('summary', e.target.value)} placeholder="يقوي عضلات الأرداف التي تحمي أسفل الظهر." />
                 </Field>
                 <Field label="المنطقة">
                     <Select value={draft.region} onChange={(e) => set('region', e.target.value as BodyRegion)}>
@@ -113,6 +125,41 @@ export function ExerciseForm({ open, onClose, editing }: { open: boolean; onClos
                 <Field label="تعليمات التنفيذ كما تُقرأ للمريض" className="sm:col-span-2">
                     <Textarea value={draft.instructions} onChange={(e) => set('instructions', e.target.value)} />
                 </Field>
+
+                <Field label="تحذير السلامة" hint="يظهر للمريض بارزًا: متى يتوقف، وما الخطأ الشائع" className="sm:col-span-2">
+                    <Input value={draft.cautions} onChange={(e) => set('cautions', e.target.value)} placeholder="توقف إن سبب دوخة أو تنميلًا في الذراع." />
+                </Field>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <button
+                        type="button"
+                        onClick={() => setShowEnglish((v) => !v)}
+                        className="flex w-full cursor-pointer items-center justify-between text-xs font-bold text-slate-700"
+                    >
+                        <span>النص الإنجليزي {hasEnglish ? '✓' : '(اختياري)'}</span>
+                        <span aria-hidden="true">{showEnglish ? '▲' : '▼'}</span>
+                    </button>
+                    <p className="mt-1 text-[11px] text-slate-500">يظهر للمريض الذي يختار الإنجليزية في بوابته. لو تُرك فارغًا يرى النص العربي.</p>
+                    {showEnglish ? (
+                        <div className="mt-3 grid gap-3" dir="ltr">
+                            <Field label="Name">
+                                <Input value={draft.nameEn} onChange={(e) => set('nameEn', e.target.value)} placeholder="Glute bridge" />
+                            </Field>
+                            <Field label="Equipment">
+                                <Input value={draft.equipmentEn} onChange={(e) => set('equipmentEn', e.target.value)} placeholder="Mat" />
+                            </Field>
+                            <Field label="Summary">
+                                <Input value={draft.summaryEn} onChange={(e) => set('summaryEn', e.target.value)} />
+                            </Field>
+                            <Field label="Instructions">
+                                <Textarea value={draft.instructionsEn} onChange={(e) => set('instructionsEn', e.target.value)} />
+                            </Field>
+                            <Field label="Caution">
+                                <Input value={draft.cautionsEn} onChange={(e) => set('cautionsEn', e.target.value)} />
+                            </Field>
+                        </div>
+                    ) : null}
+                </div>
 
                 <Field label="رابط الفيديو" hint="فيديو المركز على يوتيوب أو فيميو أو ملف mp4 مباشر" className="sm:col-span-2">
                     <Input dir="ltr" value={draft.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="https://…" />
@@ -174,7 +221,7 @@ export default function Exercises() {
         return db.exercises
             .filter((x) => (showInactive ? true : x.active))
             .filter((x) => (region === 'all' ? true : x.region === region))
-            .filter((x) => (q ? [x.name, x.equipment, x.instructions, ...x.tags].join(' ').toLowerCase().includes(q) : true))
+            .filter((x) => (q ? [x.name, x.nameEn, x.summary, x.equipment, x.instructions, ...x.tags].join(' ').toLowerCase().includes(q) : true))
             .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     }, [db.exercises, query, region, showInactive]);
 
@@ -270,10 +317,17 @@ export default function Exercises() {
                                             {REGION_LABELS[x.region]} · {LEVEL_LABELS[x.level]} · {x.equipment || 'بدون أداة'}
                                         </p>
                                     </div>
-                                    {x.videoUrl ? <Badge className="bg-teal-50 text-teal-700 ring-teal-200">فيديو</Badge> : null}
+                                    <div className="flex shrink-0 gap-1">
+                                        {x.nameEn ? <Badge className="bg-slate-100 text-slate-600 ring-slate-200">EN</Badge> : null}
+                                        {x.videoUrl ? <Badge className="bg-teal-50 text-teal-700 ring-teal-200">فيديو</Badge> : null}
+                                    </div>
                                 </div>
 
-                                {x.instructions ? <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600">{x.instructions}</p> : null}
+                                {x.summary ? <p className="mt-2 text-xs leading-relaxed text-slate-600">{x.summary}</p> : null}
+                                {!x.summary && x.instructions ? (
+                                    <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600">{x.instructions}</p>
+                                ) : null}
+                                {x.cautions ? <p className="mt-1.5 text-[11px] leading-relaxed text-rose-700">⚠ {x.cautions}</p> : null}
 
                                 <p className="mt-2 text-[11px] font-semibold text-slate-500">
                                     افتراضي: {x.defaultSets} × {x.defaultReps}

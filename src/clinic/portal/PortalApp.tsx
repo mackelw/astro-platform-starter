@@ -9,6 +9,9 @@ import { addDays, formatDate, formatDateLong, formatTime, todayISO } from '../ut
 
 type Status = 'loading' | 'login' | 'ready';
 
+/** اختيار المريض للغة يبقى على جهازه */
+const LANG_KEY = 'clinic-portal-lang';
+
 /* ------------------------------- شاشة الدخول ------------------------------- */
 
 function LoginScreen({ notice, onDone }: { notice: string; onDone: (view: PortalView) => void }) {
@@ -116,6 +119,28 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
     const [saved, setSaved] = useState(false);
     const [promId, setPromId] = useState<PromTemplateId | null>(null);
     const [messageText, setMessageText] = useState('');
+    const [english, setEnglish] = useState(() => {
+        try {
+            return window.localStorage.getItem(LANG_KEY) === 'en';
+        } catch {
+            return false;
+        }
+    });
+
+    const toggleLanguage = () => {
+        setEnglish((prev) => {
+            const next = !prev;
+            try {
+                window.localStorage.setItem(LANG_KEY, next ? 'en' : 'ar');
+            } catch {
+                /* متصفح يمنع التخزين — الاختيار يبقى لهذه الجلسة فقط */
+            }
+            return next;
+        });
+    };
+
+    // نعرض الإنجليزية فقط إن كان في البرنامج نص إنجليزي أصلًا
+    const hasEnglish = view.exercises.some((x) => x.nameEn || x.instructionsEn);
 
     // نعيد تعبئة التقييم من سجل اليوم كلما تغيّر (أو تغيّر اليوم نفسه)
     const currentKey = `${today}-${todayLog ? `${todayLog.pain}-${todayLog.difficulty}-${todayLog.note}` : 'new'}`;
@@ -177,9 +202,21 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
                             <h1 className="mt-0.5 text-lg font-extrabold">أهلًا {view.patient.name.split(' ')[0]}</h1>
                             <p className="mt-0.5 text-xs text-teal-100">{formatDateLong(today)}</p>
                         </div>
-                        <button type="button" onClick={onSignOut} className="cursor-pointer rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-semibold">
-                            خروج
-                        </button>
+                        <div className="flex shrink-0 gap-1.5">
+                            {hasEnglish ? (
+                                <button
+                                    type="button"
+                                    onClick={toggleLanguage}
+                                    className="cursor-pointer rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-semibold"
+                                    aria-label={english ? 'التبديل إلى العربية' : 'Switch to English'}
+                                >
+                                    {english ? 'عربي' : 'EN'}
+                                </button>
+                            ) : null}
+                            <button type="button" onClick={onSignOut} className="cursor-pointer rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-semibold">
+                                {english ? 'Exit' : 'خروج'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="mt-4">
@@ -229,6 +266,7 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
                                     done={doneIds.has(item.id)}
                                     onToggle={() => toggle(item.id)}
                                     disabled={busy}
+                                    english={english}
                                 />
                             ))}
                         </ul>
