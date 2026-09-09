@@ -1,78 +1,39 @@
 @import 'tailwindcss';
 
+/*
+ * ثوابت تصميم المركز. اللون الأساسي teal-600 هو نفسه المستخدم داخل برنامج
+ * الإدارة (شريط العنوان وأزرار الحفظ)، حتى يظهر الموقع والبرنامج كنظام واحد.
+ */
 @theme {
-    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --color-primary: #f67280;
-    --color-primary-content: #101828;
-    --color-complementary: #355c7d;
-    --background-image-noise: linear-gradient(
-            to bottom,
-            color-mix(in oklab, var(--color-gray-950) 0%, transparent),
-            color-mix(in oklab, var(--color-gray-950) 100%, transparent)
-        ),
-        url('/images/noise.png');
+    --font-sans: 'Segoe UI', Tahoma, 'Noto Naskh Arabic', 'Dubai', 'Cairo', Arial, sans-serif;
+    --color-brand: #0d9488;
+    --color-brand-dark: #0f766e;
+    --color-brand-light: #ccfbf1;
 }
 
-@layer base {
-    h1 {
-        @apply text-4xl font-bold tracking-tight sm:text-5xl;
-    }
+/*
+ * لا توجد هنا قواعد @layer base تفرض شكلًا على h1 أو a — القالب الأصلي كان
+ * يضع تحتها خطًا سفليًا فيسرّب التنسيق إلى شاشات البرنامج. كل صفحة تحدد
+ * تنسيقها بنفسها عبر أصناف Tailwind.
+ */
 
-    h2 {
-        @apply text-2xl font-bold sm:text-3xl;
-    }
-
-    a:not(.btn) {
-        @apply underline transition hover:opacity-80;
-    }
-
-    pre {
-        @apply p-6 overflow-x-auto rounded-lg;
-    }
-
-    :not(pre) > code {
-        @apply px-1 py-0.5 font-mono rounded bg-gray-900 text-primary;
-        font-size: 0.9em;
-    }
+/* الصفحات العامة بالإنجليزية تعمل من اليسار لليمين */
+[dir='ltr'] {
+    text-align: start;
 }
 
-@layer components {
-    .markdown {
-        > * {
-            @apply my-6;
-        }
+/* حقول التاريخ والوقت تبقى LTR حتى داخل صفحة عربية */
+input[type='date'],
+input[type='time'] {
+    direction: ltr;
+}
 
-        :where(h1, h2) {
-            @apply mt-12 mb-6;
-        }
-
-        > :first-child {
-            @apply mt-0;
-        }
-
-        > :last-child {
-            @apply mb-0;
-        }
-    }
-
-    .btn {
-        @apply inline-flex items-center justify-center gap-2 bg-primary text-primary-content cursor-pointer text-center font-semibold no-underline transition-colors;
-        padding: var(--btn-py, 0.875rem) var(--btn-px, 1.25rem);
-        font-size: var(--btn-font-size, 0.875rem);
-        border-radius: var(--btn-border-radius, 0.25rem);
-
-        &:hover {
-            @apply bg-primary/85;
-        }
-
-        &:disabled {
-            @apply text-gray-400 bg-gray-700;
-        }
-    }
-
-    .btn-lg {
-        --btn-font-size: 1.125rem;
-        --btn-px: 1.5rem;
-        --btn-py: 1.125rem;
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

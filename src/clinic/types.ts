@@ -81,6 +81,29 @@ export interface Expense {
     createdAt: string;
 }
 
+export type BookingStatus = 'new' | 'confirmed' | 'rejected' | 'converted';
+
+/**
+ * طلب حجز قادم من الموقع العام. ليس موعدًا بعد: يظل في صندوق الطلبات
+ * حتى يراجعه الاستقبال ويحوّله إلى مريض وموعد حقيقيين.
+ */
+export interface Booking {
+    id: ID;
+    name: string;
+    phone: string;
+    email: string;
+    serviceSlug: string; // رابط الخدمة في محتوى الموقع
+    therapistId: ID | '';
+    date: string; // YYYY-MM-DD
+    time: string; // HH:MM
+    message: string; // ما كتبه الزائر عن شكواه
+    lang: string; // لغة الزائر وقت الحجز: ar أو en
+    status: BookingStatus;
+    patientId: ID | ''; // يُملأ بعد التحويل
+    appointmentId: ID | '';
+    createdAt: string;
+}
+
 export interface ClinicSettings {
     name: string;
     doctorName: string; // اسم الطبيب المسؤول - يظهر في الترويسة والتقارير المطبوعة
@@ -102,6 +125,7 @@ export interface Database {
     sessions: Session[];
     payments: Payment[];
     expenses: Expense[];
+    bookings: Booking[];
 }
 
 /* ------------------------- المستخدمون والصلاحيات ------------------------- */

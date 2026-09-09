@@ -31,12 +31,13 @@ if not exist dist\server\entry.mjs (
 
 echo.
 echo البرنامج شغال. افتح:
-echo    على هذا الجهاز : http://localhost:%PORT%
+echo    برنامج الموظفين : http://localhost:%PORT%/app
+echo    موقع المركز     : http://localhost:%PORT%
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do echo    من الموبايل   : http://%%a:%PORT%
 echo.
 echo (الموبايل لازم يكون على نفس شبكة الواي فاي)
 echo لايقاف البرنامج: اغلق هذه النافذة او اضغط Ctrl+C
 echo.
-start "" http://localhost:%PORT%
+start "" http://localhost:%PORT%/app
 call npm run start:server
 pause

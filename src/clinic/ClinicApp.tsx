@@ -6,6 +6,7 @@ import Dashboard from './views/Dashboard';
 import Patients from './views/Patients';
 import PatientProfile from './views/PatientProfile';
 import Appointments from './views/Appointments';
+import Bookings from './views/Bookings';
 import SessionsView from './views/Sessions';
 import Billing from './views/Billing';
 import Reports from './views/Reports';
@@ -13,11 +14,12 @@ import Settings from './views/Settings';
 import { ErrorScreen, LoadingScreen, LoginScreen, SetupScreen } from './views/Auth';
 import { formatDateLong, todayISO } from './utils';
 
-type View = 'dashboard' | 'appointments' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
+type View = 'dashboard' | 'appointments' | 'bookings' | 'patients' | 'sessions' | 'billing' | 'reports' | 'settings';
 
 const NAV: { key: View; label: string; icon: string }[] = [
     { key: 'dashboard', label: 'لوحة التحكم', icon: '▦' },
     { key: 'appointments', label: 'المواعيد', icon: '🗓' },
+    { key: 'bookings', label: 'طلبات الحجز', icon: '📥' },
     { key: 'patients', label: 'المرضى', icon: '👤' },
     { key: 'sessions', label: 'الجلسات', icon: '🩺' },
     { key: 'billing', label: 'الحسابات', icon: '💳' },
@@ -36,7 +38,16 @@ function Shell() {
     const [menuOpen, setMenuOpen] = useState(false);
 
     // الشاشات المالية تختفي تمامًا لمن لا يملك صلاحيتها
-    const nav = useMemo(() => NAV.filter((item) => (item.key === 'billing' || item.key === 'reports' ? can('payments', 'read') : true)), [can]);
+    const nav = useMemo(
+        () =>
+            NAV.filter((item) => {
+                if (item.key === 'billing' || item.key === 'reports') return can('payments', 'read');
+                // طلبات الحجز تأتي من الموقع العام، فلا وجود لها في النسخة المحلية
+                if (item.key === 'bookings') return MODE !== 'local' && can('bookings', 'read');
+                return true;
+            }),
+        [can]
+    );
 
     // حفظ الصفحة الحالية في عنوان المتصفح حتى يعمل زر الرجوع والتحديث
     useEffect(() => {
@@ -81,6 +92,7 @@ function Shell() {
     if (patientId) content = <PatientProfile patientId={patientId} onBack={backToPatients} />;
     else if (allowed === 'dashboard') content = <Dashboard onOpenPatient={openPatient} onGo={(v) => go(v as View)} />;
     else if (allowed === 'appointments') content = <Appointments onOpenPatient={openPatient} />;
+    else if (allowed === 'bookings') content = <Bookings onOpenPatient={openPatient} />;
     else if (allowed === 'patients') content = <Patients onOpenPatient={openPatient} />;
     else if (allowed === 'sessions') content = <SessionsView onOpenPatient={openPatient} />;
     else if (allowed === 'billing') content = <Billing onOpenPatient={openPatient} />;

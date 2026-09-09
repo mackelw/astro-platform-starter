@@ -22,7 +22,8 @@ export function emptyDatabase(): Database {
         appointments: [],
         sessions: [],
         payments: [],
-        expenses: []
+        expenses: [],
+        bookings: []
     };
 }
 
@@ -200,7 +201,9 @@ export function normalize(raw: unknown): Database {
         appointments: Array.isArray(db.appointments) ? db.appointments : [],
         sessions: Array.isArray(db.sessions) ? db.sessions : [],
         payments: Array.isArray(db.payments) ? db.payments : [],
-        expenses: Array.isArray(db.expenses) ? db.expenses : []
+        expenses: Array.isArray(db.expenses) ? db.expenses : [],
+        // قواعد بيانات أُنشئت قبل إضافة الحجوزات لا تحتوي هذا الحقل
+        bookings: Array.isArray(db.bookings) ? db.bookings : []
     };
 }
 

@@ -49,6 +49,20 @@ const SCHEMAS: Record<Exclude<Resource, 'users'>, Record<string, FieldType>> = {
         price: 'number'
     },
     payments: { patientId: 'string', date: 'string', amount: 'number', method: 'string', notes: 'string' },
+    bookings: {
+        name: 'string',
+        phone: 'string',
+        email: 'string',
+        serviceSlug: 'string',
+        therapistId: 'string',
+        date: 'string',
+        time: 'string',
+        message: 'string',
+        lang: 'string',
+        status: 'string',
+        patientId: 'string',
+        appointmentId: 'string'
+    },
     expenses: { date: 'string', title: 'string', category: 'string', amount: 'number', notes: 'string' },
     settings: {
         name: 'string',
@@ -63,10 +77,16 @@ const SCHEMAS: Record<Exclude<Resource, 'users'>, Record<string, FieldType>> = {
     }
 };
 
-const ENUMS: Record<string, string[]> = {
-    gender: ['male', 'female'],
-    status: ['scheduled', 'done', 'cancelled', 'noshow'],
-    method: ['cash', 'card', 'transfer', 'insurance']
+/**
+ * القيم المسموحة لكل حقل، مفهرسة بالمورد ثم الحقل.
+ * الفهرسة بالمورد ضرورية لأن اسم الحقل وحده يتكرر: status في المواعيد
+ * غير status في الحجوزات، وخلطهما كان يحفظ قيمة خاطئة بلا أي خطأ ظاهر.
+ */
+const ENUMS: Partial<Record<Exclude<Resource, 'users'>, Record<string, string[]>>> = {
+    patients: { gender: ['male', 'female'] },
+    appointments: { status: ['scheduled', 'done', 'cancelled', 'noshow'] },
+    payments: { method: ['cash', 'card', 'transfer', 'insurance'] },
+    bookings: { status: ['new', 'confirmed', 'rejected', 'converted'], lang: ['ar', 'en'] }
 };
 
 /** يحوّل ما أرسله العميل إلى حقول معروفة بأنواع صحيحة ويتجاهل أي شيء آخر */
@@ -87,7 +107,8 @@ function sanitize(resource: Exclude<Resource, 'users'>, input: unknown): Record<
             clean[field] = Array.isArray(value) ? value.map((v) => String(v).slice(0, 200)).slice(0, 50) : [];
         } else {
             const text = String(value ?? '').slice(0, 2000);
-            clean[field] = ENUMS[field] && !ENUMS[field].includes(text) ? ENUMS[field][0] : text;
+            const allowed = ENUMS[resource]?.[field];
+            clean[field] = allowed && !allowed.includes(text) ? allowed[0] : text;
         }
     }
     return clean;
@@ -100,7 +121,7 @@ export type Mutation =
     | { resource: Exclude<Resource, 'users' | 'settings'>; op: 'delete'; id: ID }
     | { resource: 'settings'; op: 'update'; data: unknown };
 
-const COLLECTIONS = ['patients', 'therapists', 'appointments', 'sessions', 'payments', 'expenses'] as const;
+const COLLECTIONS = ['patients', 'therapists', 'appointments', 'sessions', 'payments', 'expenses', 'bookings'] as const;
 type CollectionName = (typeof COLLECTIONS)[number];
 
 /** أقصى عدد سجلات في عملية استيراد واحدة */
@@ -188,7 +209,8 @@ export function visibleDatabase(db: ServerDatabase, user: ServerUser): Database 
         appointments: db.appointments,
         sessions: db.sessions,
         payments: db.payments,
-        expenses: db.expenses
+        expenses: db.expenses,
+        bookings: db.bookings
     };
 
     if (!can(user.role, 'payments', 'read')) {
@@ -197,5 +219,7 @@ export function visibleDatabase(db: ServerDatabase, user: ServerUser): Database 
         view.patients = view.patients.map((p) => ({ ...p, sessionPrice: 0 }));
     }
     if (!can(user.role, 'expenses', 'read')) view.expenses = [];
+    // طلبات الحجز تحمل بيانات تواصل لغير المرضى — لا تُرسل أصلًا لمن لا يملك صلاحيتها
+    if (!can(user.role, 'bookings', 'read')) view.bookings = [];
     return view;
 }

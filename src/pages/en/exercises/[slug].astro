@@ -1,0 +1,12 @@
+---
+import ExerciseDetail from '../../../components/site/ExerciseDetail.astro';
+import { pathsFor } from '../../../i18n/content';
+
+export async function getStaticPaths() {
+    return pathsFor('exercises', 'en');
+}
+
+const { entry } = Astro.props;
+---
+
+<ExerciseDetail entry={entry} />

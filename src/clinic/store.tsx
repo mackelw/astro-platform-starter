@@ -1,10 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { Appointment, ClinicSettings, Database, Expense, ID, Patient, Payment, PublicUser, Session, Therapist } from './types';
+import type { Appointment, Booking, ClinicSettings, Database, Expense, ID, Patient, Payment, PublicUser, Session, Therapist } from './types';
 import { DB_KEY, emptyDatabase, loadDatabase, normalize, saveDatabase, seedDatabase, uid } from './storage';
 import { api, ApiError, MODE } from './api';
 import { can as canRole, type Action, type Resource } from './permissions';
 
-type Collection = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses';
+type Collection = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses' | 'bookings';
 
 type ItemOf = {
     patients: Patient;
@@ -13,6 +13,7 @@ type ItemOf = {
     sessions: Session;
     payments: Payment;
     expenses: Expense;
+    bookings: Booking;
 };
 
 type Status = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -29,6 +30,8 @@ interface StoreValue {
     update: <K extends Collection>(collection: K, id: ID, patch: Partial<ItemOf[K]>) => void;
     remove: (collection: Collection, id: ID) => void;
     updateSettings: (patch: Partial<ClinicSettings>) => void;
+    /** يحوّل طلب حجز إلى مريض وموعد — نسخة السيرفر فقط */
+    convertBooking: (id: ID) => Promise<void>;
     signIn: (username: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     setupAdmin: (payload: { username: string; password: string; name: string; clinicName?: string }) => Promise<void>;
@@ -218,6 +221,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         [isLocal, send]
     );
 
+    /**
+     * التحويل يمس ثلاث مجموعات معًا، فيجري كله على السيرفر في عملية واحدة
+     * بدل ثلاثة نداءات منفصلة قد ينجح بعضها ويفشل الباقي.
+     */
+    const convertBooking = useCallback(
+        async (id: ID) => {
+            if (isLocal) return; // النسخة المحلية بلا موقع عام فلا حجوزات فيها
+            try {
+                const { db: next } = await api.convertBooking(id);
+                setDb(normalize(next));
+            } catch (err) {
+                handleFailure(err);
+            }
+        },
+        [isLocal, handleFailure]
+    );
+
     /* ------------------------- الدخول والخروج ------------------------- */
 
     const signIn = useCallback(async (username: string, password: string) => {
@@ -271,6 +291,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             update,
             remove,
             updateSettings,
+            convertBooking,
             signIn,
             signOut,
             setupAdmin,
@@ -291,6 +312,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             update,
             remove,
             updateSettings,
+            convertBooking,
             signIn,
             signOut,
             setupAdmin,

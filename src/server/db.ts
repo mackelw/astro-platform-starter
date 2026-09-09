@@ -2,15 +2,17 @@
  * تخزين بيانات المركز على السيرفر.
  *
  * يختار الطبقة المناسبة تلقائيًا حسب مكان التشغيل:
- *   1. Upstash Redis عبر REST — إن وُجد متغيرا البيئة (النشر على Vercel)
- *   2. Netlify Blobs — عند النشر على Netlify
- *   3. ملف JSON محلي — على جهاز داخل المركز أو أثناء التطوير
- * فيعمل نفس الكود في الحالات الثلاث بلا تغيير.
+ *   1. SQLite — إن طُلبت صراحة بمتغير بيئة (سيرفر المركز، قرص دائم)
+ *   2. Upstash Redis عبر REST — إن وُجد متغيرا البيئة (النشر على Vercel)
+ *   3. Netlify Blobs — عند النشر على Netlify
+ *   4. ملف JSON محلي — على جهاز داخل المركز أو أثناء التطوير
+ * فيعمل نفس الكود في الحالات الأربع بلا تغيير.
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { Database, ID, Role } from '../clinic/types';
 import { emptyDatabase, normalize } from '../clinic/storage';
+import { sqliteBackend } from './sqlite';
 
 export interface ServerUser {
     id: ID;
@@ -126,6 +128,13 @@ function fileBackend(): Backend {
 
 async function getBackend(): Promise<Backend> {
     if (backend) return backend;
+
+    // اختيار صريح أولًا: من ضبط CLINIC_DB=sqlite يقصدها ولا يريد مخزنًا آخر
+    const sqlite = await sqliteBackend();
+    if (sqlite) {
+        backend = sqlite;
+        return backend;
+    }
 
     const upstash = upstashBackend();
     if (upstash) {

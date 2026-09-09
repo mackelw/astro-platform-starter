@@ -1,0 +1,138 @@
+---
+import '../styles/globals.css';
+import { dirOf, getLangFromUrl, languages, localizedPath, switchLangPath, useTranslations, type Lang } from '../i18n/ui';
+
+interface Props {
+    title?: string;
+    description?: string;
+}
+
+const lang: Lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const dir = dirOf[lang];
+const { title, description = t('site.description') } = Astro.props;
+
+const pageTitle = title ? `${title} — ${t('site.name')}` : `${t('site.name')} — ${t('site.tagline')}`;
+const other: Lang = lang === 'ar' ? 'en' : 'ar';
+const path = (p: string) => localizedPath(lang, p);
+const current = Astro.url.pathname.replace(/\/+$/, '') || '/';
+
+const nav = [
+    { href: path(''), label: t('nav.home') },
+    { href: path('services'), label: t('nav.services') },
+    { href: path('conditions'), label: t('nav.conditions') },
+    { href: path('exercises'), label: t('nav.exercises') },
+    { href: path('contact'), label: t('nav.contact') }
+];
+
+const isActive = (href: string) => (href === path('') ? current === href.replace(/\/+$/, '') || current === '/' : current.startsWith(href));
+const year = new Date().getFullYear();
+---
+
+<html lang={lang} dir={dir}>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#0d9488" />
+        <title>{pageTitle}</title>
+        <meta name="description" content={description} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin)} />
+        <link rel="alternate" hreflang={other} href={new URL(switchLangPath(Astro.url, other), Astro.site ?? Astro.url.origin)} />
+        <link rel="alternate" hreflang={lang} href={new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin)} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={description} />
+        <meta property="og:locale" content={lang === 'ar' ? 'ar_EG' : 'en_US'} />
+    </head>
+    <body class="flex min-h-screen flex-col bg-white text-slate-800 antialiased">
+        <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-3 focus:rounded-lg focus:bg-teal-600 focus:px-4 focus:py-2 focus:text-white">
+            {lang === 'ar' ? 'تخطَّ إلى المحتوى' : 'Skip to content'}
+        </a>
+
+        <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+                <a href={path('')} class="flex items-center gap-2.5">
+                    <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-lg text-white" aria-hidden="true">✚</span>
+                    <span class="text-sm font-extrabold leading-tight text-slate-800 sm:text-base">{t('site.name')}</span>
+                </a>
+
+                <nav class="hidden items-center gap-1 lg:flex" aria-label={t('nav.menu')}>
+                    {
+                        nav.map((item) => (
+                            <a
+                                href={item.href}
+                                aria-current={isActive(item.href) ? 'page' : undefined}
+                                class:list={[
+                                    'rounded-lg px-3 py-2 text-sm font-semibold transition',
+                                    isActive(item.href) ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-slate-100 hover:text-teal-700'
+                                ]}
+                            >
+                                {item.label}
+                            </a>
+                        ))
+                    }
+                </nav>
+
+                <div class="flex items-center gap-2">
+                    <a
+                        href={switchLangPath(Astro.url, other)}
+                        hreflang={other}
+                        class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                    >
+                        {languages[other]}
+                    </a>
+                    <a href={path('book')} class="hidden rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 sm:inline-block">
+                        {t('nav.book')}
+                    </a>
+                    <button
+                        type="button"
+                        id="menu-toggle"
+                        aria-label={t('nav.menu')}
+                        aria-expanded="false"
+                        aria-controls="mobile-nav"
+                        class="cursor-pointer rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+                    >
+                        ☰
+                    </button>
+                </div>
+            </div>
+
+            <nav id="mobile-nav" hidden class="border-t border-slate-200 px-4 py-2 lg:hidden" aria-label={t('nav.menu')}>
+                {
+                    nav.map((item) => (
+                        <a href={item.href} class="block rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                            {item.label}
+                        </a>
+                    ))
+                }
+                <a href={path('book')} class="mt-1 block rounded-lg bg-teal-600 px-3 py-2.5 text-center text-sm font-semibold text-white">{t('nav.book')}</a>
+            </nav>
+        </header>
+
+        <main id="main" class="grow">
+            <slot />
+        </main>
+
+        <footer class="mt-16 border-t border-slate-200 bg-slate-50">
+            <div class="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <p>© {year} {t('site.name')} — {t('footer.rights')}</p>
+                <div class="flex flex-wrap items-center gap-4">
+                    <a href={path('contact')} class="font-semibold text-slate-600 transition hover:text-teal-700">{t('nav.contact')}</a>
+                    {/* رابط ثابت لبرنامج الإدارة — كان الموظفون يفتحون الجذر قبل نقل البرنامج إلى /app */}
+                    <a href="/app" class="font-semibold text-slate-600 transition hover:text-teal-700">{t('footer.staff')}</a>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            const toggle = document.getElementById('menu-toggle');
+            const menu = document.getElementById('mobile-nav');
+            toggle?.addEventListener('click', () => {
+                const open = menu?.hidden === false;
+                if (menu) menu.hidden = open;
+                toggle.setAttribute('aria-expanded', String(!open));
+            });
+        </script>
+    </body>
+</html>

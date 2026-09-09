@@ -1,7 +1,7 @@
 import type { Role } from './types';
 
 /** المجموعات التي تُطبَّق عليها الصلاحيات (settings و users ليست مصفوفات لكنها تخضع لنفس الفحص) */
-export type Resource = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses' | 'settings' | 'users';
+export type Resource = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses' | 'bookings' | 'settings' | 'users';
 export type Action = 'read' | 'create' | 'update' | 'delete';
 
 type Matrix = Record<Role, Record<Resource, Action[]>>;
@@ -21,6 +21,7 @@ export const PERMISSIONS: Matrix = {
         sessions: ALL,
         payments: ALL,
         expenses: ALL,
+        bookings: ALL,
         settings: ['read', 'update'],
         users: ALL
     },
@@ -32,6 +33,7 @@ export const PERMISSIONS: Matrix = {
         sessions: ['read'],
         payments: ['read', 'create', 'update'],
         expenses: ['read', 'create'],
+        bookings: ALL,
         settings: ['read'],
         users: []
     },
@@ -43,6 +45,8 @@ export const PERMISSIONS: Matrix = {
         sessions: ['read', 'create', 'update'],
         payments: [],
         expenses: [],
+        // طلبات الحجز تحمل بيانات تواصل لأشخاص ليسوا مرضى بعد، فلا يراها الأخصائي
+        bookings: [],
         settings: ['read'],
         users: []
     }

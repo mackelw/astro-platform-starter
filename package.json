@@ -10,30 +10,32 @@
         "astro": "astro",
         "build:offline": "astro build && node scripts/build-offline.mjs",
         "build:server": "CLINIC_TARGET=node astro build",
-        "start:server": "node ./dist/server/entry.mjs"
+        "start:server": "node ./dist/server/entry.mjs",
+        "check": "astro check",
+        "db:migrate": "node --experimental-strip-types scripts/migrate-to-sqlite.mjs"
     },
     "dependencies": {
         "@astrojs/netlify": "^6.2.3",
         "@astrojs/node": "^9.5.5",
         "@astrojs/react": "^4.2.1",
         "@astrojs/vercel": "^8.2.11",
-        "@fontsource-variable/inter": "^5.2.5",
         "@netlify/blobs": "^8.2.0",
-        "@netlify/functions": "^2.8.2",
         "@tailwindcss/vite": "^4.0.14",
         "@types/react": "^18.2.79",
         "@types/react-dom": "^18.2.25",
         "astro": "^5.5.3",
-        "blobshape": "^1.0.0",
-        "marked": "^13.0.0",
-        "marked-shiki": "^1.2.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "tailwindcss": "^4.0.14",
-        "unique-names-generator": "^4.7.1"
+        "drizzle-orm": "^0.36.4"
     },
     "devDependencies": {
-        "@types/blobshape": "^1.0.3",
-        "@types/node": "^20.12.7"
+        "@types/node": "^20.12.7",
+        "@astrojs/check": "^0.9.4",
+        "typescript": "^5.6.3",
+        "@types/better-sqlite3": "^7.6.11"
+    },
+    "optionalDependencies": {
+        "better-sqlite3": "^11.5.0"
     }
 }

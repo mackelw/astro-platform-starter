@@ -30,11 +30,13 @@ IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null |
 
 echo ""
 echo "البرنامج شغال. افتح:"
-echo "  على هذا الجهاز : http://localhost:$PORT"
-[ -n "$IP" ] && echo "  من الموبايل    : http://$IP:$PORT   (على نفس شبكة الواي فاي)"
+echo "  برنامج الموظفين : http://localhost:$PORT/app"
+echo "  موقع المركز     : http://localhost:$PORT"
+[ -n "$IP" ] && echo "  من الموبايل     : http://$IP:$PORT/app   (على نفس شبكة الواي فاي)"
 echo ""
 echo "لإيقاف البرنامج: أغلق هذه النافذة أو اضغط Ctrl+C"
 echo ""
 
-(sleep 2; (open "http://localhost:$PORT" 2>/dev/null || xdg-open "http://localhost:$PORT" 2>/dev/null || true)) &
+# يفتح شاشة الموظفين مباشرة — الجذر صار موقع المركز العام
+(sleep 2; (open "http://localhost:$PORT/app" 2>/dev/null || xdg-open "http://localhost:$PORT/app" 2>/dev/null || true)) &
 npm run start:server

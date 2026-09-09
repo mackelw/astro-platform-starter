@@ -1,0 +1,12 @@
+---
+import ConditionDetail from '../../../components/site/ConditionDetail.astro';
+import { pathsFor } from '../../../i18n/content';
+
+export async function getStaticPaths() {
+    return pathsFor('conditions', 'en');
+}
+
+const { entry } = Astro.props;
+---
+
+<ConditionDetail entry={entry} />

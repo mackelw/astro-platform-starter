@@ -1,0 +1,108 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { getLangFromUrl, localizedPath, useTranslations } from '../../i18n/ui';
+import { entriesFor, slugOf } from '../../i18n/content';
+import { bodyAreas } from '../../content.config';
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const path = (p: string) => localizedPath(lang, p);
+const exercises = await entriesFor('exercises', lang);
+
+const areaLabels: Record<string, { ar: string; en: string }> = {
+    neck: { ar: 'الرقبة', en: 'Neck' },
+    back: { ar: 'الظهر', en: 'Back' },
+    shoulder: { ar: 'الكتف', en: 'Shoulder' },
+    knee: { ar: 'الركبة', en: 'Knee' },
+    hip: { ar: 'الورك', en: 'Hip' },
+    ankle: { ar: 'الكاحل', en: 'Ankle' }
+};
+
+// لا نعرض منطقة لا تمارين فيها
+const areas = bodyAreas.filter((area) => exercises.some((e) => e.data.bodyArea === area));
+---
+
+<SiteLayout title={t('exercises.title')}>
+    <div class="mx-auto max-w-5xl px-4 py-12">
+        <h1 class="text-3xl font-extrabold text-slate-900">{t('exercises.title')}</h1>
+        <p class="mt-3 max-w-2xl leading-relaxed text-slate-600">{t('exercises.intro')}</p>
+
+        <div class="mt-6 flex flex-wrap gap-2" role="group" aria-label={t('exercises.filter')}>
+            <button
+                type="button"
+                data-area="all"
+                aria-pressed="true"
+                class="area-filter cursor-pointer rounded-lg border border-teal-600 bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white transition"
+            >
+                {t('exercises.all')}
+            </button>
+            {
+                areas.map((area) => (
+                    <button
+                        type="button"
+                        data-area={area}
+                        aria-pressed="false"
+                        class="area-filter cursor-pointer rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                    >
+                        {areaLabels[area][lang]}
+                    </button>
+                ))
+            }
+        </div>
+
+        <div id="exercise-grid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {
+                exercises.map((e) => (
+                    <a
+                        href={path(`exercises/${slugOf(e)}`)}
+                        data-area={e.data.bodyArea}
+                        class="exercise-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-teal-300 hover:shadow"
+                    >
+                        <span class="inline-block rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700">
+                            {areaLabels[e.data.bodyArea][lang]}
+                        </span>
+                        <h2 class="mt-3 text-base font-bold text-slate-800">{e.data.title}</h2>
+                        <p class="mt-2 text-sm leading-relaxed text-slate-600">{e.data.summary}</p>
+                        <p class="mt-3 text-xs font-semibold text-slate-400">
+                            {e.data.sets} × {e.data.reps}
+                            {e.data.hold ? ` · ${e.data.hold}` : ''}
+                        </p>
+                    </a>
+                ))
+            }
+        </div>
+
+        <p id="exercise-empty" hidden class="mt-8 text-center text-sm text-slate-500">{t('exercises.none')}</p>
+
+        <p class="mt-10 rounded-xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">{t('exercises.disclaimer')}</p>
+    </div>
+</SiteLayout>
+
+<script>
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.area-filter');
+    const cards = document.querySelectorAll<HTMLAnchorElement>('.exercise-card');
+    const empty = document.getElementById('exercise-empty');
+
+    const active = 'border-teal-600 bg-teal-600 text-white';
+    const idle = 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50';
+
+    buttons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const area = button.dataset.area;
+
+            buttons.forEach((other) => {
+                const on = other === button;
+                other.setAttribute('aria-pressed', String(on));
+                other.className = `area-filter cursor-pointer rounded-lg border px-3.5 py-2 text-sm font-semibold transition ${on ? active : idle}`;
+            });
+
+            let shown = 0;
+            cards.forEach((card) => {
+                const match = area === 'all' || card.dataset.area === area;
+                card.hidden = !match;
+                if (match) shown++;
+            });
+            if (empty) empty.hidden = shown > 0;
+        });
+    });
+</script>

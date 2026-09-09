@@ -50,6 +50,8 @@ export const api = {
     mutate: (mutation: { resource: string; op: 'create' | 'createMany' | 'update' | 'delete'; id?: string; data?: unknown; items?: unknown[] }) =>
         request<{ db: Database }>('/api/clinic/mutate', { method: 'POST', body: JSON.stringify(mutation) }),
 
+    convertBooking: (id: string) => request<{ db: Database }>('/api/clinic/booking-convert', { method: 'POST', body: JSON.stringify({ id }) }),
+
     listUsers: () => request<{ users: PublicUser[] }>('/api/clinic/users'),
 
     createUser: (payload: { username: string; password: string; name: string; role: Role; therapistId?: string }) =>
