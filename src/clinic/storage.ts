@@ -408,8 +408,6 @@ export function seedDatabase(): Database {
         createdAt: new Date().toISOString()
     }));
 
-    db.patientAccess = [{ patientId: p1.id, token: uid('') + uid(''), code: '481207', enabled: true, createdAt: new Date().toISOString(), lastSeenAt: '' }];
-
     return db;
 }
 

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { MODE } from '../api';
-import type { Patient, Program } from '../types';
+import type { Patient, PatientAccessSecret, Program } from '../types';
 import ProgramBuilder from '../components/ProgramBuilder';
 import { Badge, Button, Card, CardHeader, EmptyState, Table, Td, Textarea } from '../components/ui';
 import { adherence, adherenceLevel, exerciseName, itemSummary, LEVEL_CLASSES, PROGRAM_STATUS_CLASSES, PROGRAM_STATUS_LABELS } from '../telerehab';
@@ -37,9 +37,17 @@ async function copyText(text: string): Promise<boolean> {
     }
 }
 
+/**
+ * مفتاح دخول المريض.
+ *
+ * الرابط والرمز مُجزّآن في القاعدة ولا يُسترجعان، فيُعرض نصّهما الصريح مرة واحدة فقط
+ * لحظة الإصدار. بعد إغلاق هذه اللوحة لا يبقى إلا إصدار مفتاح جديد.
+ */
 function AccessCard({ patient }: { patient: Patient }) {
     const { db, manageAccess, can } = useStore();
     const [copied, setCopied] = useState('');
+    const [secret, setSecret] = useState<PatientAccessSecret | null>(null);
+    const [busy, setBusy] = useState(false);
     const access = db.patientAccess.find((a) => a.patientId === patient.id);
     const canManage = can('patientAccess', 'update');
 
@@ -54,14 +62,44 @@ function AccessCard({ patient }: { patient: Patient }) {
         );
     }
 
-    const link = access && typeof window !== 'undefined' ? `${window.location.origin}/p?t=${access.token}` : '';
     const active = Boolean(access?.enabled);
+    const link = secret && typeof window !== 'undefined' ? `${window.location.origin}/p?t=${secret.token}` : '';
 
     const copy = async (value: string, tag: string) => {
         if (await copyText(value)) {
             setCopied(tag);
             window.setTimeout(() => setCopied(''), 2000);
         }
+    };
+
+    const issue = async (action: 'issue' | 'regenerate' | 'revoke') => {
+        setBusy(true);
+        try {
+            const result = await manageAccess(patient.id, action);
+            if (result) setSecret(result);
+            if (action === 'revoke') setSecret(null);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    /** بطاقة يسلّمها الاستقبال للمريض — الفرصة الوحيدة لحفظ الرمز خارج الشاشة */
+    const printCard = () => {
+        if (!secret) return;
+        printHTML(
+            `بطاقة دخول - ${patient.name}`,
+            `<div class="head">
+                <div><h1>${escapeHtml(db.settings.name)}</h1><p class="muted">بطاقة دخول برنامجك المنزلي</p></div>
+                <div style="text-align:left"><p class="muted">${escapeHtml(formatDate(todayISO()))}</p></div>
+            </div>
+            <p class="muted">المريض: <b>${escapeHtml(patient.name)}</b> (${escapeHtml(patient.code)})</p>
+            <h2>الطريقة الأولى: افتح الرابط</h2>
+            <p style="direction:ltr;text-align:left;word-break:break-all;font-family:monospace;font-size:12px">${escapeHtml(link)}</p>
+            <h2>الطريقة الثانية: رقم موبايلك مع هذا الرمز</h2>
+            <p style="font-size:30px;font-weight:700;letter-spacing:8px;direction:ltr">${escapeHtml(secret.code)}</p>
+            <p class="muted">رقم الموبايل المسجل: ${escapeHtml(patient.phone || '—')}</p>
+            <p class="muted" style="margin-top:14px">احتفظ بهذه البطاقة. الرمز خاص بك ولا يمكن للمركز استرجاعه — لو فقدته سيصدر لك رمز جديد${db.settings.phone ? ' بالاتصال على ' + escapeHtml(db.settings.phone) : ''}.</p>`
+        );
     };
 
     return (
@@ -73,23 +111,27 @@ function AccessCard({ patient }: { patient: Patient }) {
                     canManage ? (
                         <div className="flex flex-wrap gap-2">
                             {!access ? (
-                                <Button onClick={() => void manageAccess(patient.id, 'issue')}>إصدار رابط ورمز</Button>
+                                <Button onClick={() => void issue('issue')} disabled={busy}>
+                                    إصدار رابط ورمز
+                                </Button>
                             ) : (
                                 <>
                                     <Button
                                         variant="secondary"
+                                        disabled={busy}
                                         onClick={() => {
-                                            if (window.confirm('سيتوقف الرابط والرمز الحاليان فورًا ويُصدر غيرهما. متابعة؟')) {
-                                                void manageAccess(patient.id, 'regenerate');
+                                            if (window.confirm('سيتوقف الرابط والرمز الحاليان فورًا ويُصدر غيرهما، وتنتهي جلسة المريض. متابعة؟')) {
+                                                void issue('regenerate');
                                             }
                                         }}
                                     >
-                                        تجديد
+                                        إصدار مفتاح جديد
                                     </Button>
                                     <Button
                                         variant="ghost"
+                                        disabled={busy}
                                         className={active ? 'text-rose-600 hover:bg-rose-50' : ''}
-                                        onClick={() => void manageAccess(patient.id, active ? 'revoke' : 'issue')}
+                                        onClick={() => void issue(active ? 'revoke' : 'issue')}
                                     >
                                         {active ? 'إيقاف الوصول' : 'إعادة التفعيل'}
                                     </Button>
@@ -99,16 +141,18 @@ function AccessCard({ patient }: { patient: Patient }) {
                     ) : undefined
                 }
             />
-            {!access ? (
-                <EmptyState title="لم يُصدر مفتاح دخول بعد" hint="بعد الإصدار سيصلك رابط سري ورمز من ستة أرقام تسلّمهما للمريض." />
-            ) : (
-                <div className="space-y-3 p-4">
-                    {!active ? <Badge className="bg-rose-100 text-rose-800 ring-rose-200">الوصول موقوف حاليًا</Badge> : null}
 
-                    <div>
-                        <p className="mb-1 text-[11px] font-semibold text-slate-500">الرابط السري</p>
+            {secret ? (
+                <div className="m-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+                    <p className="text-sm font-extrabold text-amber-900">انسخ هذه البيانات الآن — لن تظهر مرة أخرى</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                        الرابط والرمز محفوظان مُجزّأين في قاعدة البيانات، فلا يستطيع أحد في المركز عرضهما لاحقًا. لو فقدهما المريض أصدر له مفتاحًا جديدًا.
+                    </p>
+
+                    <div className="mt-3">
+                        <p className="mb-1 text-[11px] font-semibold text-amber-900">الرابط السري</p>
                         <div className="flex flex-wrap items-center gap-2">
-                            <code dir="ltr" className="min-w-0 grow truncate rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+                            <code dir="ltr" className="min-w-0 grow truncate rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
                                 {link}
                             </code>
                             <Button variant="secondary" className="shrink-0" onClick={() => void copy(link, 'link')}>
@@ -117,18 +161,51 @@ function AccessCard({ patient }: { patient: Patient }) {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-end gap-4">
+                    <div className="mt-3 flex flex-wrap items-end gap-3">
                         <div>
-                            <p className="mb-1 text-[11px] font-semibold text-slate-500">رمز الدخول (مع رقم الموبايل {patient.phone || '—'})</p>
-                            <p dir="ltr" className="rounded-lg bg-teal-50 px-4 py-2 text-2xl font-extrabold tracking-widest text-teal-800">
-                                {access.code}
+                            <p className="mb-1 text-[11px] font-semibold text-amber-900">
+                                رمز الدخول (مع رقم الموبايل <span dir="ltr">{patient.phone || '—'}</span>)
+                            </p>
+                            <p dir="ltr" className="rounded-lg bg-white px-4 py-2 text-2xl font-extrabold tracking-widest text-teal-800">
+                                {secret.code}
                             </p>
                         </div>
-                        <Button variant="secondary" onClick={() => void copy(access.code, 'code')}>
+                        <Button variant="secondary" onClick={() => void copy(secret.code, 'code')}>
                             {copied === 'code' ? 'تم النسخ ✓' : 'نسخ الرمز'}
                         </Button>
-                        <p className="text-[11px] text-slate-500">آخر دخول: {access.lastSeenAt ? formatDate(access.lastSeenAt.slice(0, 10)) : 'لم يدخل بعد'}</p>
+                        <Button variant="secondary" onClick={printCard}>
+                            طباعة بطاقة الدخول
+                        </Button>
                     </div>
+
+                    <Button className="mt-4 w-full" onClick={() => setSecret(null)}>
+                        سلّمتها للمريض — إخفاء
+                    </Button>
+                </div>
+            ) : null}
+
+            {!access ? (
+                secret ? null : (
+                    <EmptyState title="لم يُصدر مفتاح دخول بعد" hint="بعد الإصدار سيظهر الرابط والرمز مرة واحدة لتنسخهما أو تطبعهما للمريض." />
+                )
+            ) : (
+                <div className="space-y-2 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {active ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 ring-emerald-200">الوصول مفعّل</Badge>
+                        ) : (
+                            <Badge className="bg-rose-100 text-rose-800 ring-rose-200">الوصول موقوف</Badge>
+                        )}
+                        <span className="text-[11px] text-slate-500">صدر في {formatDate(access.createdAt.slice(0, 10))}</span>
+                        <span className="text-[11px] text-slate-500">
+                            · آخر دخول: {access.lastSeenAt ? formatDate(access.lastSeenAt.slice(0, 10)) : 'لم يدخل بعد'}
+                        </span>
+                    </div>
+                    {!secret ? (
+                        <p className="text-[11px] leading-relaxed text-slate-500">
+                            الرابط والرمز غير قابلين للعرض بعد إصدارهما — محفوظان مُجزّأين لحماية بيانات المريض. لو فقدهما اضغط «إصدار مفتاح جديد».
+                        </p>
+                    ) : null}
                 </div>
             )}
         </Card>

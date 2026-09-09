@@ -1,4 +1,4 @@
-import type { Database, PublicUser, Role } from './types';
+import type { Database, PatientAccessSecret, PublicUser, Role } from './types';
 
 declare const __CLINIC_MODE__: 'server' | 'local' | undefined;
 
@@ -60,7 +60,10 @@ export const api = {
 
     deleteUser: (id: string) => request<{ users: PublicUser[] }>(`/api/clinic/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-    /** إصدار مفتاح بوابة المريض أو تجديده أو إبطاله */
+    /** إصدار مفتاح بوابة المريض أو تجديده أو إبطاله — `secret` يعود مرة واحدة عند الإصدار فقط */
     access: (patientId: string, action: 'issue' | 'regenerate' | 'revoke') =>
-        request<{ db: Database }>('/api/clinic/access', { method: 'POST', body: JSON.stringify({ patientId, action }) })
+        request<{ db: Database; secret: PatientAccessSecret | null }>('/api/clinic/access', {
+            method: 'POST',
+            body: JSON.stringify({ patientId, action })
+        })
 };

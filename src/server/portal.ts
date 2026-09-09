@@ -9,15 +9,17 @@
  * ولا يرى المريض من قاعدة البيانات إلا ما يخصه هو.
  */
 import type { APIContext } from 'astro';
-import type { Exercise, ID, Patient, PromTemplateId } from '../clinic/types';
+import type { Exercise, ID, Patient, PatientAccessSecret, PromTemplateId } from '../clinic/types';
 import { promTemplate } from '../clinic/prom';
-import { hashToken, randomHex } from './auth';
+import { hashPassword, hashToken, randomHex, safeEqual } from './auth';
 import { mutateDatabase, type ServerDatabase } from './db';
 
 export const PORTAL_COOKIE = 'clinic_portal';
 const PORTAL_DAYS = 30;
 const MAX_CODE_ATTEMPTS = 6;
 const LOCKOUT_MINUTES = 15;
+/** رمز الستة أرقام مجاله صغير، فتجزئته بطيئة عمدًا حتى لو تسربت القاعدة */
+const CODE_ITERATIONS = 210_000;
 
 /* ------------------------------ إصدار المفاتيح ------------------------------ */
 
@@ -32,26 +34,41 @@ export function newAccessToken(): string {
     return randomHex(24);
 }
 
-/** ينشئ مفتاح دخول للمريض إن لم يكن له مفتاح، أو يجدّده بالكامل */
-export function issueAccess(db: ServerDatabase, patientId: ID, regenerate = false): void {
+/**
+ * ينشئ مفتاح دخول جديدًا للمريض ويعيد نصه الصريح **مرة واحدة**.
+ * المحفوظ في القاعدة تجزئات فقط، فلا سبيل لاسترجاع الرمز لاحقًا — من فقده يُصدَر له غيره.
+ */
+export async function issueAccess(db: ServerDatabase, patientId: ID, regenerate: boolean): Promise<PatientAccessSecret | null> {
     const existing = db.patientAccess.find((a) => a.patientId === patientId);
+
+    // إعادة تفعيل مفتاح موقوف: الرمز القديم ما زال صالحًا عند المريض فلا نولّد غيره
     if (existing && !regenerate) {
         existing.enabled = true;
-        return;
+        return null;
     }
+
+    const token = newAccessToken();
+    const code = newAccessCode();
+    const codeSalt = randomHex(16);
+
     const record = {
         patientId,
-        token: newAccessToken(),
-        code: newAccessCode(),
+        tokenHash: await hashToken(token),
+        codeHash: await hashPassword(code, codeSalt, CODE_ITERATIONS),
+        codeSalt,
+        iterations: CODE_ITERATIONS,
         enabled: true,
         createdAt: new Date().toISOString(),
         lastSeenAt: existing?.lastSeenAt ?? ''
     };
+
     if (existing) Object.assign(existing, record);
     else db.patientAccess.push(record);
 
-    // تجديد المفتاح يُنهي أي جلسة قائمة بالرابط القديم
-    if (regenerate) db.portalSessions = db.portalSessions.filter((s) => s.patientId !== patientId);
+    // المفتاح الجديد يُنهي أي جلسة قائمة بالمفتاح القديم
+    db.portalSessions = db.portalSessions.filter((s) => s.patientId !== patientId);
+
+    return { token, code };
 }
 
 export function revokeAccess(db: ServerDatabase, patientId: ID): void {
@@ -121,9 +138,10 @@ export async function currentPatient(context: APIContext, db: ServerDatabase): P
     return db.patients.find((p) => p.id === session.patientId && !p.archived) ?? null;
 }
 
-/** دخول بالرابط السري */
+/** دخول بالرابط السري — نطابق تجزئة الرمز لا الرمز نفسه */
 export async function loginByToken(context: APIContext, db: ServerDatabase, token: string): Promise<Patient | null> {
-    const access = db.patientAccess.find((a) => a.enabled && a.token === token);
+    const tokenHash = await hashToken(token);
+    const access = db.patientAccess.find((a) => a.enabled && safeEqual(a.tokenHash, tokenHash));
     if (!access) return null;
     const patient = db.patients.find((p) => p.id === access.patientId && !p.archived);
     if (!patient) return null;
@@ -140,23 +158,35 @@ export async function loginByCode(context: APIContext, db: ServerDatabase, phone
     if (wait) return { error: `تم إيقاف المحاولات مؤقتًا. حاول بعد ${wait} دقيقة.` };
 
     // مطابقة آخر أرقام الهاتف حتى لا يفشل الدخول بسبب صفر بادئ أو مفتاح دولة
-    const patients = db.patients.filter((p) => {
-        const stored = p.phone.replace(/\D/g, '');
-        return stored.length >= 6 && !p.archived && (stored.endsWith(digits) || digits.endsWith(stored));
-    });
+    const candidates = db.patients
+        .filter((p) => {
+            const stored = p.phone.replace(/\D/g, '');
+            return stored.length >= 6 && !p.archived && (stored.endsWith(digits) || digits.endsWith(stored));
+        })
+        .map((patient) => ({ patient, access: db.patientAccess.find((a) => a.patientId === patient.id && a.enabled) }))
+        .filter((row) => row.access);
 
-    const match = patients
-        .map((p) => ({ patient: p, access: db.patientAccess.find((a) => a.patientId === p.id && a.enabled) }))
-        .find((row) => row.access && row.access.code === code.trim());
+    let matched: Patient | null = null;
+    for (const row of candidates) {
+        const access = row.access!;
+        const candidate = await hashPassword(code.trim(), access.codeSalt, access.iterations || CODE_ITERATIONS);
+        if (safeEqual(candidate, access.codeHash)) {
+            matched = row.patient;
+            break;
+        }
+    }
 
-    if (!match) {
+    // حساب تجزئة وهمية عند عدم وجود أي مرشّح حتى لا يكشف زمن الرد عن الأرقام المسجلة
+    if (!candidates.length) await hashPassword(code.trim(), 'placeholder-salt', CODE_ITERATIONS);
+
+    if (!matched) {
         recordFailure(digits);
         return { error: 'رقم الموبايل أو رمز الدخول غير صحيح' };
     }
 
     attempts.delete(digits);
-    await startSession(context, match.patient.id);
-    return { patient: match.patient };
+    await startSession(context, matched.id);
+    return { patient: matched };
 }
 
 /* ------------------------------ ما يراه المريض ------------------------------ */

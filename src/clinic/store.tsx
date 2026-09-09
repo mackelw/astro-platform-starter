@@ -8,6 +8,7 @@ import type {
     ID,
     Patient,
     Payment,
+    PatientAccessSecret,
     PortalMessage,
     Program,
     ProgramTemplate,
@@ -65,8 +66,8 @@ interface StoreValue {
     signOut: () => Promise<void>;
     setupAdmin: (payload: { username: string; password: string; name: string; clinicName?: string }) => Promise<void>;
     refresh: () => Promise<void>;
-    /** مفاتيح بوابة المريض — متاحة في نسخة السيرفر فقط */
-    manageAccess: (patientId: ID, action: 'issue' | 'regenerate' | 'revoke') => Promise<void>;
+    /** مفاتيح بوابة المريض — متاحة في نسخة السيرفر فقط. يعيد نص المفتاح مرة واحدة عند الإصدار. */
+    manageAccess: (patientId: ID, action: 'issue' | 'regenerate' | 'revoke') => Promise<PatientAccessSecret | null>;
     // متاحة في النسخة المحلية فقط
     replaceAll: (next: Database) => void;
     resetToSeed: () => void;
@@ -289,12 +290,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const manageAccess = useCallback(
         async (patientId: ID, action: 'issue' | 'regenerate' | 'revoke') => {
-            if (isLocal) return;
+            if (isLocal) return null;
             try {
-                const { db: next } = await api.access(patientId, action);
+                const { db: next, secret } = await api.access(patientId, action);
                 setDb(normalize(next));
+                return secret;
             } catch (err) {
                 handleFailure(err);
+                return null;
             }
         },
         [isLocal, handleFailure]

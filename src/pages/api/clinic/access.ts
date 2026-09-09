@@ -4,6 +4,7 @@ import { mutateDatabase, readDatabase } from '../../../server/db';
 import { visibleDatabase } from '../../../server/api';
 import { issueAccess, revokeAccess } from '../../../server/portal';
 import { can } from '../../../clinic/permissions';
+import type { PatientAccessSecret } from '../../../clinic/types';
 
 export const prerender = false;
 
@@ -16,6 +17,8 @@ export const POST: APIRoute = async (context) => {
 
     let unauthenticated = false;
     let denied: string | null = null;
+    // النص الصريح للرابط والرمز يخرج من هنا مرة واحدة ولا يُحفظ في أي مكان
+    let secret: PatientAccessSecret | null = null;
 
     await mutateDatabase(async (db) => {
         const user = await currentUser(context, db);
@@ -32,7 +35,7 @@ export const POST: APIRoute = async (context) => {
             return;
         }
         if (action === 'revoke') revokeAccess(db, patientId);
-        else issueAccess(db, patientId, action === 'regenerate');
+        else secret = await issueAccess(db, patientId, action === 'regenerate');
     });
 
     if (unauthenticated) return json({ error: 'انتهت الجلسة، سجّل الدخول من جديد' }, 401);
@@ -41,5 +44,5 @@ export const POST: APIRoute = async (context) => {
     const db = await readDatabase();
     const user = await currentUser(context, db);
     if (!user) return json({ error: 'انتهت الجلسة، سجّل الدخول من جديد' }, 401);
-    return json({ db: visibleDatabase(db, user) });
+    return json({ db: visibleDatabase(db, user), secret });
 };

@@ -358,7 +358,8 @@ export function visibleDatabase(db: ServerDatabase, user: ServerUser): Database 
         programLogs: db.programLogs,
         promResponses: db.promResponses,
         portalMessages: db.portalMessages,
-        patientAccess: db.patientAccess
+        // التجزئات لا تغادر السيرفر — الواجهة تحتاج الحالة فقط
+        patientAccess: db.patientAccess.map(({ patientId, enabled, createdAt, lastSeenAt }) => ({ patientId, enabled, createdAt, lastSeenAt }))
     };
 
     if (!can(user.role, 'payments', 'read')) {

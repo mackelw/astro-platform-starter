@@ -9,7 +9,7 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { Database, ID, Role } from '../clinic/types';
+import type { Database, ID, PatientAccessInfo, Role } from '../clinic/types';
 import { emptyDatabase, normalize } from '../clinic/storage';
 
 export interface ServerUser {
@@ -41,7 +41,20 @@ export interface PortalSession {
     expiresAt: string;
 }
 
+/**
+ * مفتاح البوابة كما يُحفظ فعلًا.
+ * الرابط السري رمز عشوائي طويل فتكفيه تجزئة SHA-256 كجلسات الدخول،
+ * أما رمز الستة أرقام فمجاله صغير (مليون احتمال) فيُجزّأ بـ PBKDF2 بملح خاص.
+ */
+export interface ServerPatientAccess extends PatientAccessInfo {
+    tokenHash: string;
+    codeHash: string;
+    codeSalt: string;
+    iterations: number;
+}
+
 export interface ServerDatabase extends Database {
+    patientAccess: ServerPatientAccess[];
     users: ServerUser[];
     authSessions: ServerSession[]; // جلسات تسجيل الدخول (غير الجلسات العلاجية)
     portalSessions: PortalSession[];
@@ -53,7 +66,7 @@ const REDIS_KEY = 'clinic:database';
 const FILE_PATH = resolve(process.env.CLINIC_DATA_FILE || '.data/clinic-db.json');
 
 export function emptyServerDatabase(): ServerDatabase {
-    return { ...emptyDatabase(), users: [], authSessions: [], portalSessions: [] };
+    return { ...emptyDatabase(), users: [], authSessions: [], portalSessions: [], patientAccess: [] };
 }
 
 function normalizeServer(raw: unknown): ServerDatabase {
@@ -62,7 +75,9 @@ function normalizeServer(raw: unknown): ServerDatabase {
         ...normalize(raw),
         users: Array.isArray(source.users) ? source.users : [],
         authSessions: Array.isArray(source.authSessions) ? source.authSessions : [],
-        portalSessions: Array.isArray(source.portalSessions) ? source.portalSessions : []
+        portalSessions: Array.isArray(source.portalSessions) ? source.portalSessions : [],
+        // normalize العامة تُرجع النسخة المنزوعة الأسرار، فنستعيد الحقول المُجزّأة من المصدر
+        patientAccess: Array.isArray(source.patientAccess) ? source.patientAccess : []
     };
 }
 

@@ -109,7 +109,7 @@ export interface Database {
     programLogs: ProgramLog[];
     promResponses: PromResponse[];
     portalMessages: PortalMessage[];
-    patientAccess: PatientAccess[];
+    patientAccess: PatientAccessInfo[];
 }
 
 /* ------------------------- المستخدمون والصلاحيات ------------------------- */
@@ -246,15 +246,20 @@ export interface PortalMessage {
 }
 
 /**
- * مفتاح دخول المريض للبوابة.
- * الرابط السري والرمز مخزَّنان كنص لأن الاستقبال يحتاج إعادة إرسالهما للمريض في أي وقت،
- * وهما داخل نفس قاعدة بيانات المرضى أصلًا. يُبطَل المفتاح بتعطيله أو بتوليد رابط جديد.
+ * حالة مفتاح دخول المريض كما تراها شاشات المركز.
+ *
+ * لا يحتوي على الرابط السري ولا رمز الدخول: كلاهما مُجزّأ في قاعدة البيانات ولا يُسترجع أبدًا،
+ * ويُعرض نصًا صريحًا مرة واحدة فقط لحظة إصداره. من فقد رمزه يُصدَر له مفتاح جديد.
  */
-export interface PatientAccess {
+export interface PatientAccessInfo {
     patientId: ID;
-    token: string; // الرابط السري
-    code: string; // رمز من 6 أرقام يُستخدم مع رقم الموبايل
     enabled: boolean;
     createdAt: string;
     lastSeenAt: string;
+}
+
+/** ما يُعرض مرة واحدة بعد الإصدار — لا يُحفظ في أي مكان */
+export interface PatientAccessSecret {
+    token: string;
+    code: string;
 }
