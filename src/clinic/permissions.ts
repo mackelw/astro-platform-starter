@@ -1,7 +1,23 @@
 import type { Role } from './types';
 
 /** المجموعات التي تُطبَّق عليها الصلاحيات (settings و users ليست مصفوفات لكنها تخضع لنفس الفحص) */
-export type Resource = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses' | 'settings' | 'users';
+export type Resource =
+    | 'patients'
+    | 'therapists'
+    | 'appointments'
+    | 'sessions'
+    | 'payments'
+    | 'expenses'
+    | 'settings'
+    | 'users'
+    // وحدة التأهيل عن بُعد
+    | 'exercises'
+    | 'programs'
+    | 'programTemplates'
+    | 'programLogs'
+    | 'promResponses'
+    | 'portalMessages'
+    | 'patientAccess';
 export type Action = 'read' | 'create' | 'update' | 'delete';
 
 type Matrix = Record<Role, Record<Resource, Action[]>>;
@@ -22,7 +38,14 @@ export const PERMISSIONS: Matrix = {
         payments: ALL,
         expenses: ALL,
         settings: ['read', 'update'],
-        users: ALL
+        users: ALL,
+        exercises: ALL,
+        programs: ALL,
+        programTemplates: ALL,
+        programLogs: ALL,
+        promResponses: ALL,
+        portalMessages: ALL,
+        patientAccess: ALL
     },
     // الاستقبال: المرضى والمواعيد والتحصيل، بدون حذف أو إعدادات أو مستخدمين
     reception: {
@@ -33,7 +56,15 @@ export const PERMISSIONS: Matrix = {
         payments: ['read', 'create', 'update'],
         expenses: ['read', 'create'],
         settings: ['read'],
-        users: []
+        users: [],
+        exercises: ['read'],
+        programs: ['read'],
+        programTemplates: ['read'],
+        programLogs: ['read'],
+        promResponses: ['read', 'create'],
+        portalMessages: ['read', 'create'],
+        // الاستقبال هو من يسلّم المريض رابط البوابة ورمزه
+        patientAccess: ['read', 'create', 'update']
     },
     // الأخصائي: الجانب العلاجي فقط، بلا أي بيانات مالية
     therapist: {
@@ -44,7 +75,15 @@ export const PERMISSIONS: Matrix = {
         payments: [],
         expenses: [],
         settings: ['read'],
-        users: []
+        users: [],
+        // الأخصائي هو صاحب الجانب العلاجي: يبني المكتبة والبرامج والبروتوكولات
+        exercises: ALL,
+        programs: ALL,
+        programTemplates: ALL,
+        programLogs: ['read'], // سجل المريض لا يُعدَّل من المركز
+        promResponses: ['read', 'create'],
+        portalMessages: ['read', 'create'],
+        patientAccess: ['read', 'create', 'update']
     }
 };
 

@@ -1,10 +1,38 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { Appointment, ClinicSettings, Database, Expense, ID, Patient, Payment, PublicUser, Session, Therapist } from './types';
+import type {
+    Appointment,
+    ClinicSettings,
+    Database,
+    Exercise,
+    Expense,
+    ID,
+    Patient,
+    Payment,
+    PatientAccessSecret,
+    PortalMessage,
+    Program,
+    ProgramTemplate,
+    PromResponse,
+    PublicUser,
+    Session,
+    Therapist
+} from './types';
 import { DB_KEY, emptyDatabase, loadDatabase, normalize, saveDatabase, seedDatabase, uid } from './storage';
 import { api, ApiError, MODE } from './api';
 import { can as canRole, type Action, type Resource } from './permissions';
 
-type Collection = 'patients' | 'therapists' | 'appointments' | 'sessions' | 'payments' | 'expenses';
+type Collection =
+    | 'patients'
+    | 'therapists'
+    | 'appointments'
+    | 'sessions'
+    | 'payments'
+    | 'expenses'
+    | 'exercises'
+    | 'programs'
+    | 'programTemplates'
+    | 'promResponses'
+    | 'portalMessages';
 
 type ItemOf = {
     patients: Patient;
@@ -13,6 +41,11 @@ type ItemOf = {
     sessions: Session;
     payments: Payment;
     expenses: Expense;
+    exercises: Exercise;
+    programs: Program;
+    programTemplates: ProgramTemplate;
+    promResponses: PromResponse;
+    portalMessages: PortalMessage;
 };
 
 type Status = 'loading' | 'setup' | 'login' | 'ready' | 'error';
@@ -33,6 +66,8 @@ interface StoreValue {
     signOut: () => Promise<void>;
     setupAdmin: (payload: { username: string; password: string; name: string; clinicName?: string }) => Promise<void>;
     refresh: () => Promise<void>;
+    /** مفاتيح بوابة المريض — متاحة في نسخة السيرفر فقط. يعيد نص المفتاح مرة واحدة عند الإصدار. */
+    manageAccess: (patientId: ID, action: 'issue' | 'regenerate' | 'revoke') => Promise<PatientAccessSecret | null>;
     // متاحة في النسخة المحلية فقط
     replaceAll: (next: Database) => void;
     resetToSeed: () => void;
@@ -253,6 +288,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         [isLocal, user]
     );
 
+    const manageAccess = useCallback(
+        async (patientId: ID, action: 'issue' | 'regenerate' | 'revoke') => {
+            if (isLocal) return null;
+            try {
+                const { db: next, secret } = await api.access(patientId, action);
+                setDb(normalize(next));
+                return secret;
+            } catch (err) {
+                handleFailure(err);
+                return null;
+            }
+        },
+        [isLocal, handleFailure]
+    );
+
     const replaceAll = useCallback((next: Database) => setDb(normalize(next)), []);
     const resetToSeed = useCallback(() => setDb(seedDatabase()), []);
     const clearAll = useCallback(() => setDb((prev) => ({ ...emptyDatabase(), settings: prev.settings })), []);
@@ -275,6 +325,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             signOut,
             setupAdmin,
             refresh,
+            manageAccess,
             replaceAll,
             resetToSeed,
             clearAll
@@ -295,6 +346,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             signOut,
             setupAdmin,
             refresh,
+            manageAccess,
             replaceAll,
             resetToSeed,
             clearAll

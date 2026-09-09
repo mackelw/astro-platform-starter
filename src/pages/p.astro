@@ -1,0 +1,26 @@
+---
+import ClinicLayout from '../layouts/ClinicLayout.astro';
+import PortalApp from '../clinic/portal/PortalApp';
+
+export const prerender = false;
+---
+
+<ClinicLayout
+    title="برنامجي المنزلي"
+    description="بوابة المريض: برنامج التمارين المنزلي ومتابعة الالتزام والتواصل مع المركز."
+>
+    {/* رسالة إقلاع تظهر فورًا وتختفي عند تشغيل البوابة */}
+    <div id="portal-boot" class="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+        <div class="flex size-12 items-center justify-center rounded-xl bg-teal-600 text-2xl text-white">✚</div>
+        <p class="text-sm font-bold text-slate-700">جارٍ فتح برنامجك…</p>
+    </div>
+
+    <PortalApp client:only="react" />
+
+    <noscript>
+        <div class="mx-auto max-w-xl p-8 text-center">
+            <h1 class="text-xl font-bold">تحتاج تفعيل JavaScript</h1>
+            <p class="mt-2 text-sm text-slate-600">فعّل JavaScript في المتصفح ثم أعد تحميل الصفحة لفتح برنامجك.</p>
+        </div>
+    </noscript>
+</ClinicLayout>

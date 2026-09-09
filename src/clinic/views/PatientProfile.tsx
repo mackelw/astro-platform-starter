@@ -3,6 +3,8 @@ import { useStore } from '../store';
 import type { Session } from '../types';
 import { PatientForm } from './Patients';
 import { AppointmentForm, PaymentForm, SessionForm } from '../components/forms';
+import ProgramPanel from './ProgramPanel';
+import PromPanel from './PromPanel';
 import { Badge, Button, Card, CardHeader, EmptyState, Table, Td } from '../components/ui';
 import {
     age,
@@ -33,7 +35,7 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
     const { db, remove, can } = useStore();
     const canSeeMoney = can('payments', 'read');
     const patient = db.patients.find((p) => p.id === patientId);
-    const [tab, setTab] = useState<'sessions' | 'appointments' | 'payments'>('sessions');
+    const [tab, setTab] = useState<'sessions' | 'program' | 'proms' | 'appointments' | 'payments'>('sessions');
     const [editOpen, setEditOpen] = useState(false);
     const [apptOpen, setApptOpen] = useState(false);
     const [sessionOpen, setSessionOpen] = useState(false);
@@ -209,6 +211,8 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                     {(
                         [
                             ['sessions', `الجلسات (${data.sessions.length})`],
+                            ['program', 'البرنامج المنزلي'],
+                            ['proms', 'مقاييس النتائج'],
                             ['appointments', `المواعيد (${data.appointments.length})`],
                             ...(canSeeMoney ? ([['payments', `المدفوعات (${data.payments.length})`]] as const) : [])
                         ] as const
@@ -282,6 +286,10 @@ export default function PatientProfile({ patientId, onBack }: { patientId: strin
                         </ul>
                     )
                 ) : null}
+
+                {tab === 'program' ? <ProgramPanel patient={patient} /> : null}
+
+                {tab === 'proms' ? <PromPanel patient={patient} /> : null}
 
                 {tab === 'appointments' ? (
                     data.appointments.length === 0 ? (
