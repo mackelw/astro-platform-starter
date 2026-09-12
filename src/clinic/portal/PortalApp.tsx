@@ -5,6 +5,8 @@ import ExerciseCard from './ExerciseCard';
 import PromForm from '../components/PromForm';
 import { Button, Card, Field, Input, Textarea } from '../components/ui';
 import { PROM_TEMPLATES, promTemplate } from '../prom';
+import { clearOfflineData, registerServiceWorker, useInstallPrompt, useIosInstallHint, useOnline } from './pwa';
+import { clearPending, readPending, writePending, type PendingLog } from './offline';
 import { addDays, formatDate, formatDateLong, formatTime, todayISO } from '../utils';
 
 type Status = 'loading' | 'login' | 'ready';
@@ -106,6 +108,46 @@ function DayStrip({ view }: { view: PortalView }) {
     );
 }
 
+/* ------------------------------ دعوة التثبيت ------------------------------ */
+
+function InstallCard({ english }: { english: boolean }) {
+    const { canInstall, install, dismiss } = useInstallPrompt();
+    const ios = useIosInstallHint();
+    if (!canInstall && !ios.show) return null;
+
+    return (
+        <Card className="border-teal-200 bg-teal-50 p-4">
+            <p className="text-sm font-extrabold text-teal-900">{english ? 'Keep your programme one tap away' : 'خلّي برنامجك على بُعد ضغطة واحدة'}</p>
+            <p className="mt-1 text-xs leading-relaxed text-teal-800">
+                {english
+                    ? 'Add it to your home screen: it opens like an app and your exercises still show without internet.'
+                    : 'ثبّته على شاشة موبايلك: يفتح كتطبيق، وتمارينك تظهر حتى بلا إنترنت.'}
+            </p>
+
+            {canInstall ? (
+                <div className="mt-3 flex gap-2">
+                    <Button className="grow" onClick={() => void install()}>
+                        {english ? 'Install' : 'تثبيت'}
+                    </Button>
+                    <Button variant="secondary" onClick={dismiss}>
+                        {english ? 'Later' : 'لاحقًا'}
+                    </Button>
+                </div>
+            ) : (
+                // سفاري لا يعطي دعوة تلقائية، فنشرح الخطوات
+                <div className="mt-3">
+                    <p className="text-xs font-semibold text-teal-900">
+                        {english ? 'In Safari: tap Share then “Add to Home Screen”.' : 'من سفاري: اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».'}
+                    </p>
+                    <Button variant="secondary" className="mt-2 w-full" onClick={ios.dismiss}>
+                        {english ? 'Got it' : 'فهمت'}
+                    </Button>
+                </div>
+            )}
+        </Card>
+    );
+}
+
 /* ------------------------------ الشاشة الرئيسية ------------------------------ */
 
 function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: PortalView) => void; onSignOut: () => void }) {
@@ -119,6 +161,8 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
     const [saved, setSaved] = useState(false);
     const [promId, setPromId] = useState<PromTemplateId | null>(null);
     const [messageText, setMessageText] = useState('');
+    const online = useOnline();
+    const [pending, setPending] = useState<PendingLog | null>(() => readPending());
     const [english, setEnglish] = useState(() => {
         try {
             return window.localStorage.getItem(LANG_KEY) === 'en';
@@ -143,13 +187,16 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
     const hasEnglish = view.exercises.some((x) => x.nameEn || x.instructionsEn);
 
     // نعيد تعبئة التقييم من سجل اليوم كلما تغيّر (أو تغيّر اليوم نفسه)
-    const currentKey = `${today}-${todayLog ? `${todayLog.pain}-${todayLog.difficulty}-${todayLog.note}` : 'new'}`;
+    const source = pending && pending.date === today ? pending : todayLog;
+    const currentKey = `${today}-${source ? `${source.pain}-${source.difficulty}-${source.note}` : 'new'}`;
     if (syncKey !== currentKey) {
         setSyncKey(currentKey);
-        setDraft({ pain: todayLog?.pain ?? 0, difficulty: todayLog?.difficulty ?? 0, note: todayLog?.note ?? '' });
+        setDraft({ pain: source?.pain ?? 0, difficulty: source?.difficulty ?? 0, note: source?.note ?? '' });
     }
 
-    const doneIds = useMemo(() => new Set(todayLog?.doneItemIds ?? []), [todayLog]);
+    // ما سُجّل على الجهاز ولم يصل السيرفر بعد يعلو على نسخة السيرفر، وإلا اختفت علامات المريض أمامه
+    const localLog = pending && pending.date === today ? pending : todayLog;
+    const doneIds = useMemo(() => new Set(localLog?.doneItemIds ?? []), [localLog]);
     const items = view.program?.items ?? [];
     const exerciseById = useMemo(() => new Map(view.exercises.map((x) => [x.id, x])), [view.exercises]);
 
@@ -175,8 +222,62 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
         [setView, onSignOut]
     );
 
-    const saveLog = (doneItemIds: ID[], assessment = draft) =>
-        run(() => portalApi.saveLog({ date: today, doneItemIds, pain: assessment.pain, difficulty: assessment.difficulty, note: assessment.note }));
+    const saveLog = async (doneItemIds: ID[], assessment = draft) => {
+        const payload = { date: today, doneItemIds, pain: assessment.pain, difficulty: assessment.difficulty, note: assessment.note };
+        setBusy(true);
+        setError('');
+        try {
+            const result = await portalApi.saveLog(payload);
+            setView(result.view);
+            setPending(null);
+            clearPending();
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 2000);
+        } catch (err) {
+            if (err instanceof PortalError && err.status === 401) {
+                onSignOut();
+                return;
+            }
+            // انقطاع شبكة (status 0): نحفظ على الجهاز ونعيد الإرسال لاحقًا بدل إضاعة ما سجّله
+            if (err instanceof PortalError && err.status === 0) {
+                const stored = writePending(payload);
+                setPending(stored);
+                setError(stored ? '' : 'لا يوجد إنترنت ولم يسمح المتصفح بالحفظ على الجهاز. سجّل ما أنجزته على ورقة وأعد إدخاله عند عودة الشبكة.');
+                return;
+            }
+            setError(err instanceof Error ? err.message : 'تعذر الحفظ');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    // إعادة الإرسال فور عودة الشبكة — السيرفر يعامل اليوم كتحديث فالتكرار آمن
+    useEffect(() => {
+        if (!online || !pending || busy) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const result = await portalApi.saveLog({
+                    date: pending.date,
+                    doneItemIds: pending.doneItemIds,
+                    pain: pending.pain,
+                    difficulty: pending.difficulty,
+                    note: pending.note
+                });
+                if (cancelled) return;
+                setView(result.view);
+                setPending(null);
+                clearPending();
+                setSaved(true);
+                window.setTimeout(() => setSaved(false), 2500);
+            } catch {
+                /* ما زالت الشبكة متعثرة — نعيد المحاولة عند التغيير التالي */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [online, pending, busy, setView]);
 
     const toggle = (itemId: ID) => {
         const next = new Set(doneIds);
@@ -235,8 +336,24 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
             </header>
 
             <main className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+                {!online ? (
+                    <p className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+                        {english ? 'No internet — you can still tick your exercises.' : 'لا يوجد إنترنت — كمّل تمارينك عادي وعلّمها.'}
+                    </p>
+                ) : null}
+
+                {pending ? (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                        {english
+                            ? 'Saved on your phone — it will reach the clinic once you are back online.'
+                            : 'محفوظ على موبايلك — هيوصل المركز أول ما الإنترنت يرجع.'}
+                    </p>
+                ) : null}
+
                 {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
-                {saved ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">تم الحفظ ✓</p> : null}
+                {saved ? (
+                    <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{english ? 'Saved ✓' : 'تم الحفظ ✓'}</p>
+                ) : null}
 
                 {!view.program ? (
                     <Card className="p-6 text-center">
@@ -360,7 +477,7 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
                                                 )}
                                             </p>
                                         </div>
-                                        <Button variant="secondary" className="shrink-0" onClick={() => setPromId(t.id)}>
+                                        <Button variant="secondary" className="shrink-0" disabled={!online} onClick={() => setPromId(t.id)}>
                                             {last ? 'إعادة الملء' : 'ابدأ'}
                                         </Button>
                                     </div>
@@ -383,6 +500,8 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
                         </ul>
                     </Card>
                 ) : null}
+
+                <InstallCard english={english} />
 
                 <Card className="p-4">
                     <h3 className="text-sm font-extrabold text-slate-800">تواصل مع المركز</h3>
@@ -413,7 +532,7 @@ function Portal({ view, setView, onSignOut }: { view: PortalView; setView: (v: P
                         />
                         <Button
                             className="w-full"
-                            disabled={busy || !messageText.trim()}
+                            disabled={busy || !online || !messageText.trim()}
                             onClick={() => {
                                 const text = messageText.trim();
                                 setMessageText('');
@@ -458,6 +577,7 @@ export default function PortalApp() {
 
     useEffect(() => {
         document.getElementById('portal-boot')?.remove();
+        registerServiceWorker();
 
         const params = new URLSearchParams(window.location.search);
         const token = params.get('t') ?? undefined;
@@ -488,6 +608,9 @@ export default function PortalApp() {
 
     const signOut = useCallback(() => {
         void portalApi.logout().catch(() => undefined);
+        // لا يبقى ملف طبي على هاتف قد يكون مشتركًا
+        clearOfflineData();
+        clearPending();
         setView(null);
         setNotice('');
         setStatus('login');

@@ -4,10 +4,15 @@ import '../styles/globals.css';
 interface Props {
     title?: string;
     description?: string;
+    /** بوابة المريض وحدها قابلة للتثبيت كتطبيق — شاشات المركز تُفتح من المتصفح */
+    pwa?: boolean;
 }
 
-const { title = 'مركز رينج للعلاج الطبيعي والتأهيل', description = 'برنامج محلي لإدارة مواعيد وجلسات وحسابات مركز رينج للعلاج الطبيعي والتأهيل — يعمل داخل المتصفح بدون إنترنت.' } =
-    Astro.props;
+const {
+    title = 'مركز رينج للعلاج الطبيعي والتأهيل',
+    description = 'برنامج محلي لإدارة مواعيد وجلسات وحسابات مركز رينج للعلاج الطبيعي والتأهيل — يعمل داخل المتصفح بدون إنترنت.',
+    pwa = false
+} = Astro.props;
 ---
 
 <!doctype html>
@@ -20,6 +25,18 @@ const { title = 'مركز رينج للعلاج الطبيعي والتأهيل'
         <meta name="generator" content={Astro.generator} />
         <meta name="theme-color" content="#0d9488" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        {
+            pwa && (
+                <>
+                    <link rel="manifest" href="/manifest.webmanifest" />
+                    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                    <meta name="apple-mobile-web-app-capable" content="yes" />
+                    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+                    <meta name="apple-mobile-web-app-title" content="برنامجي" />
+                    <meta name="mobile-web-app-capable" content="yes" />
+                </>
+            )
+        }
         <style is:global>
             body {
                 font-family: 'Segoe UI', Tahoma, 'Noto Naskh Arabic', 'Dubai', 'Cairo', Arial, sans-serif;
